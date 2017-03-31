@@ -3,7 +3,7 @@
 
 ' ARGUMENTS:
 
-' 1) Mandatory -
+' 1) Mandatory
 '	a. k = the # of clusters to be generated
 
 ' 2) Optional
