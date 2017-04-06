@@ -184,55 +184,80 @@ for !iter = 1 to !ITERS
 	' create k vectors with the initialized indexed coordinates
 	for !centr = 1 to !K
 		!centr_idx = {%centr_idxs}(!centr)
-		%centr = "v_centr" + @str(!centr)
+		%centr = "v_centr" + @str(!centr) + "_old"
 		vector {%centr} = {%m_srs}.@row(!centr_idx)
 	next
 	delete {%centr_idxs}
-	
-	' iterate through each observation & find its closest centroid
-	%centrs = @wlookup("v_centr*", "vector")
-	for !obs = 1 to @rows({%m_srs})
-		' extract the observation's values
-		%obs = "v_obs" + @str(!obs)
-		vector {%obs} = {%m_srs}.@row(!obs)
-		'  find the centroid the observation is closest to
-		!min_dist = NA
-		for %centr {%centrs} 
-			!dist = @sqrt(@sum(@epow({%obs} - {%centr}, 2)))
-			' if this centroid is the closest centroid so far, take note
-			if !min_dist = NA or !dist < !min_dist then
-				!min_dist = !dist
-				%min_centr = %centr
-			endif
+
+	' only exit while loop when the clusters have reached their optima
+	while 1
+
+		' iterate through each observation & find its closest centroid
+		%centrs = @wlookup("v_centr*", "vector")
+		for !obs = 1 to @rows({%m_srs})
+			' extract the observation's values
+			%obs = "v_obs" + @str(!obs)
+			vector {%obs} = {%m_srs}.@row(!obs)
+			'  find the centroid the observation is closest to
+			!min_dist = NA
+			for %centr {%centrs} 
+				!dist = @sqrt(@sum(@epow({%obs} - {%centr}, 2)))
+				' if this centroid is the closest centroid so far, take note
+				if !min_dist = NA or !dist < !min_dist then
+					!min_dist = !dist
+					%min_centr = %centr
+				endif
+			next 
+			' indicate in the obs' closest centroid that this obs is closest to particular centroid
+			%closest_clusts = {%min_centr}.@attr("closest_clusts")
+			%closest_clusts = %closest_clusts + " " + @str(!obs)
+			{%min_centr}.setattr("closest_clusts") %closest_clusts
 		next 
-		' indicate in the obs' closest centroid that this obs is closest to particular centroid
-		%closest_clusts = {%min_centr}.@attr("closest_clusts")
-		%closest_clusts = %closest_clusts + " " + @str(!obs)
-		{%min_centr}.setattr("closest_clusts") %closest_clusts
-	next 
-
-	' go thru each cluster centroid & recalculate it as the mean of each of the newest closest centroids
-	for %centr {%centrs}
-		%closest_clusts = {%centr}.@attr("closest_clusts")
-		!clust_num = @wcount(%closest_clusts)
-		%m_centr = @replace(%centr, "V_", "M_")
-		' initialize the cluster's matrix of current associated points
-		matrix(!clust_num, @columns({%m_srs})) {%m_centr} = NA
-		!clust_row = 1
-		' fill the cluster's matrix with its observations
-		for %closest_clust {%closest_clusts}
-			!closest_clust = @val(%closest_clust)
-			vector v_temp = {%m_srs}.@row(!closest_clust)
-			rowplace({%m_centr}, @transpose(v_temp), !clust_row) 
-			delete v_temp
-			!clust_row = !clust_row + 1
+	
+		' go thru each cluster centroid & recalculate it as the mean of each of the newest closest centroids
+		for %centr {%centrs}
+			%closest_clusts = {%centr}.@attr("closest_clusts")
+			!clust_num = @wcount(%closest_clusts)
+			%m_centr = @replace(%centr, "V_", "M_")
+			' initialize the cluster's matrix of current associated points
+			matrix(!clust_num, @columns({%m_srs})) {%m_centr} = NA
+			!clust_row = 1
+			' fill the cluster's matrix with its observations
+			for %closest_clust {%closest_clusts}
+				!closest_clust = @val(%closest_clust)
+				vector v_temp = {%m_srs}.@row(!closest_clust)
+				rowplace({%m_centr}, @transpose(v_temp), !clust_row) 
+				delete v_temp
+				!clust_row = !clust_row + 1
+			next
+			' take the mean of the cluster's series
+			%centr_new = @replace(%centr, "_OLD", "_NEW")
+			vector {%centr_new} = @cmean({%m_centr})
 		next
-		' take the mean of the cluster's series
-		%centr_new = %centr + "_new"
-		vector {%centr_new} = @cmean({%m_centr})
-	next
-next 
 
+		' determine if it definitively can be concluded that an optimum is reached
+		!optimum_reached = 1
+		%centrs_old = @wlookup("v_centr*_old", "vector")
+		for %centr_old {%centrs_old}
+			%centr_new = @replace(%centr_old, "_OLD", "_NEW")
+			if {%centr_old} <> {%centr_new} then
+				!optimum_reached = 0
+				exitloop
+			endif
+		next		
+		' if the optimal clustering is achieved, store the matrices & calculate the cost function
+		if !optimum_reached then
+			%store_mats = "m_centr*_iter" + @str(!iter)
+			rename m_centr*_old {%store_mats}
+			delete v_centr*
+			exitloop
+		' if optimal clustering is not achieved, prep for another iteration
+		else
+			delete m_centr*_old v_centr*_old
+			rename v_centr*_new v_centr*_old
+		endif
+	wend
+next 
 
 
 
