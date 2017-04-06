@@ -136,12 +136,20 @@ for !row = 1 to @rows({%g_srs})
 	endif
 next
 {%m_srs}.setrowlabels {%complete_idxs}
+delete {%g_srs}
 
 ' throw an error if the # of clusters is greater than or equal to the # of observations
 !obs = @rows({%m_srs})
 if !K >= !obs then
 	seterr "ERROR: there are at least as many clusters as there are complete observations"
 endif
+
+' remove the observation's series values into their own vector
+for !obs = 1 to @rows({%m_srs})
+	%obs = "v_obs" + @str(!obs)
+	 ' extract the observation's values
+	vector {%obs} = {%m_srs}.@row(!obs)
+next
 
 ' figure out which observations will be randomly initialized as centroids for each iteration of k-means to be done
 %m_init = @getnextname("m_init")
@@ -195,9 +203,7 @@ for !iter = 1 to !ITERS
 		' iterate through each observation & find its closest centroid
 		%centrs = @wlookup("v_centr*", "vector")
 		for !obs = 1 to @rows({%m_srs})
-			' extract the observation's values
 			%obs = "v_obs" + @str(!obs)
-			vector {%obs} = {%m_srs}.@row(!obs)
 			'  find the centroid the observation is closest to
 			!min_dist = NA
 			for %centr {%centrs} 
@@ -248,8 +254,10 @@ for !iter = 1 to !ITERS
 		' if the optimal clustering is achieved, store the matrices & calculate the cost function
 		if !optimum_reached then
 			%store_mats = "m_centr*_iter" + @str(!iter)
+			%store_vecs = "v_centr*_iter" + @str(!iter)
 			rename m_centr*_old {%store_mats}
-			delete v_centr*
+			rename v_centr*_old {%store_vecs}
+			delete v_centr*_new
 			exitloop
 		' if optimal clustering is not achieved, prep for another iteration
 		else
@@ -257,8 +265,6 @@ for !iter = 1 to !ITERS
 			rename v_centr*_new v_centr*_old
 		endif
 	wend
-next 
-
-
+next
 
 
