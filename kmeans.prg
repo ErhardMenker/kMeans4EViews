@@ -184,6 +184,8 @@ logmsg
 logmsg ----- Executing k-means clustering with !K clusters over !ITERS iterations
 logmsg
 
+' initialize the cost variable to be minimized 
+!cost_min = NA 
 ' execute k-means clustering across each iteration
 for !iter = 1 to !ITERS
 	' extract centroids from the respective randomly initialized matrix column	
@@ -251,14 +253,31 @@ for !iter = 1 to !ITERS
 				exitloop
 			endif
 		next		
-		' if the optimal clustering is achieved, store the matrices & calculate the cost function
 		if !optimum_reached then
-			%store_mats = "m_centr*_iter" + @str(!iter)
-			%store_vecs = "v_centr*_iter" + @str(!iter)
-			rename m_centr*_old {%store_mats}
-			rename v_centr*_old {%store_vecs}
-			delete v_centr*_new
-			exitloop
+			delete v_centr*_new ' don't need this anymore - just used them to verify that cluster solution converged
+			' calculate the cost function of the solution
+			!cost_iter = 0
+			%centrs = @wlookup("v_centr*_old", "vector")
+			for %centr {%centrs}
+				%clust_obs = {%centr}.@attr("Closest_clusts")
+				for %clust_ob {%clust_obs}
+					%clust_ob = "v_obs" + %clust_ob
+					!clust_cost = @sum(@epow({%clust_ob} - {%centr}, 2))
+					!cost_iter = !cost_iter + !clust_cost
+				next
+			next 
+			!cost_iter = !cost_iter / @rows({%m_srs})
+			' if this cost function is less than the previous best (or the 1st iteration), store these centroids as the optimal ones thus far
+			if !cost_min = NA or !cost_iter < !cost_min then
+				!cost_min = !cost_iter
+				' clear out the previous optimal vectors & rename the current iterated 1s
+				if @wcount(@wlookup("v_centr*_opt", "vector")) > 0 then
+					delete v_centr*_opt 
+				endif 
+				rename v_centr*_old v_centr*_opt
+				delete m_centr*_old ' just need the coordinates at this point
+			endif 
+			exitloop 
 		' if optimal clustering is not achieved, prep for another iteration
 		else
 			delete m_centr*_old v_centr*_old
