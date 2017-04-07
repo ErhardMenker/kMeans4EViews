@@ -157,17 +157,17 @@ matrix(!K, !ITERS) {%m_init}
 %vec_prev = "" ' tests equality when iterated onto the next vector
 for !iter = 1 to !ITERS
 	%vec = @getnextname("v_idxs")
-	vector(!obs) {%vec} = NA
+	vector(@rows({%m_srs})) {%vec} = NA
 	' fill in the k-means iteration's vector where each element is the vector's index
-	for !obs_iter = 1 to !obs
+	for !obs_iter = 1 to @rows({%m_srs})
 		{%vec}(!obs_iter) = !obs_iter
 	next
 	' scatter the vector's entries (set a seed to ensure reproducibility)
 	rndseed !iter
 	{%vec} = @permute({%vec})
 	' drop the rows not in the top !K (not sure how to do this quicker)
-	for !row_drop = !K to !obs
-		!row_drop0 = !obs - !row_drop ' drop ending elements first to not disrupt indexing
+	for !row_drop = (!K + 1) to @rows({%m_srs})
+		!row_drop0 = @rows({%m_srs}) + (!K + 1) - !row_drop ' drop ending elements first to not disrupt indexing
 		{%vec} = {%vec}.@droprow(!row_drop0)
 	next
 	' sort to judge cross vector equality
