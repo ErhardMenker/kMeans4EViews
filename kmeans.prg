@@ -3,10 +3,10 @@
 
 ' ARGUMENTS:
 
-' 1) Mandatory
+' 1) Mandatory -
 '	a. k = the # of clusters to be generated
 
-' 2) Optional
+' 2) Optional -
 '	a. quiet = shut off log messages (log messages left on if not specified)
 '	b. iters = the number of full solution iterations to run (defaults to 1)
 '	c. series = a space delimited string of series included in analysis (defaults to all series)
@@ -203,7 +203,7 @@ for !iter = 1 to !ITERS
 	while 1
 
 		' iterate through each observation & find its closest centroid
-		%centrs = @wlookup("v_centr*", "vector")
+		%centrs = @wlookup("v_centr*old", "vector")
 		for !obs = 1 to @rows({%m_srs})
 			%obs = "v_obs" + @str(!obs)
 			'  find the centroid the observation is closest to
@@ -267,7 +267,7 @@ for !iter = 1 to !ITERS
 				next
 			next 
 			!cost_iter = !cost_iter / @rows({%m_srs})
-			' if this cost function is less than the previous best (or the 1st iteration), store these centroids as the optimal ones thus far
+			' if this cost function is less than the previous best (or on the 1st iteration), store these centroids as the optimal ones thus far
 			if !cost_min = NA or !cost_iter < !cost_min then
 				!cost_min = !cost_iter
 				' clear out the previous optimal vectors & rename the current iterated 1s
@@ -283,7 +283,7 @@ for !iter = 1 to !ITERS
 			delete m_centr*_old v_centr*_old
 			rename v_centr*_new v_centr*_old
 		endif
-	wend
-next
+	wend ' next move of current cluster centroids
+next ' next random init of cluster centeroids
 
 
