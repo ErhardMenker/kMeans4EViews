@@ -217,21 +217,21 @@ for !iter = 1 to !ITERS
 				endif
 			next 
 			' indicate in the obs' closest centroid that this obs is closest to particular centroid
-			%closest_clusts = {%min_centr}.@attr("closest_clusts")
-			%closest_clusts = %closest_clusts + " " + @str(!obs)
-			{%min_centr}.setattr("closest_clusts") %closest_clusts
+			%assoc_obs = {%min_centr}.@attr("assoc_obs")
+			%assoc_obs = %assoc_obs + " " + @str(!obs)
+			{%min_centr}.setattr("assoc_obs") %assoc_obs
 		next 
 	
 		' go thru each cluster centroid & recalculate it as the mean of each of the newest closest centroids
 		for %centr {%centrs}
-			%closest_clusts = {%centr}.@attr("closest_clusts")
-			!clust_num = @wcount(%closest_clusts)
+			%assoc_obs = {%centr}.@attr("assoc_obs")
+			!clust_num = @wcount(%assoc_obs)
 			%m_centr = @replace(%centr, "V_", "M_")
 			' initialize the cluster's matrix of current associated points
 			matrix(!clust_num, @columns({%m_srs})) {%m_centr} = NA
 			!clust_row = 1
 			' fill the cluster's matrix with its observations
-			for %closest_clust {%closest_clusts}
+			for %closest_clust {%assoc_obs}
 				!closest_clust = @val(%closest_clust)
 				vector v_temp = {%m_srs}.@row(!closest_clust)
 				rowplace({%m_centr}, @transpose(v_temp), !clust_row) 
@@ -259,7 +259,7 @@ for !iter = 1 to !ITERS
 			!cost_iter = 0
 			%centrs = @wlookup("v_centr*_old", "vector")
 			for %centr {%centrs}
-				%clust_obs = {%centr}.@attr("Closest_clusts")
+				%clust_obs = {%centr}.@attr("assoc_obs")
 				for %clust_ob {%clust_obs}
 					%clust_ob = "v_obs" + %clust_ob
 					!clust_cost = @sum(@epow({%clust_ob} - {%centr}, 2))
@@ -285,5 +285,92 @@ for !iter = 1 to !ITERS
 		endif
 	wend ' next move of current cluster centroids
 next ' next random init of cluster centeroids
+
+' ************************************************
+' *** CLEAN UP & PRESENT RESULTS ***
+' ************************************************
+logmsg
+logmsg ----- Presenting results & cleaning up
+logmsg
+
+' NOTE: all cluster summary stats are recalculated, because the calculations were done on normalized series to avoid scaling issues
+
+' all that is needed at this juncture from the above work is:
+' i) the closest observations to each cluster centroid
+' ii) the indices of observations used in the cluster analysis (excludes observations where any included series has an NA)
+
+%concepts = {%m_srs}.@collabels ' ordering of series for cluster centroid coordinates 
+%obs_idxs = {%m_srs}.@rowlabels ' indices of used observations
+
+' create a text file to present the results
+pageselect {%PAGE_CALLED}
+%results = @getnextname("kmeans_results")
+text {%results}
+{%results}.append "*******************************************************************"
+{%results}.append "*** ANALYSIS OF K-MEANS CLUSTERING RESULTS ***"
+{%results}.append "*******************************************************************"
+{%results}.append
+{%results}.append "******************************************************************************************"
+{%results}.append " *** USER SELECTED PARAMETERS ***"
+{%results}.append
+%k_num_msg = "# of clusters: " + @str(!K)
+	{%results}.append %k_num_msg
+%iter_msg = "# of iterations used: " + @str(!ITERS)
+	{%results}.append %iter_msg
+%srs_msg = "Series included in clusters: " + %concepts
+	{%results}.append %srs_msg
+{%results}.append "******************************************************************************************"
+{%results}.append
+
+' calculate the means of the series for all observations used in the cluster analysis (obs indices with NAs are dropped)
+for %concept {%concepts}
+	!{%concept}_all_sum = 0
+	for %obs_idx {%obs_idxs}
+		!{%concept}_all_sum = !{%concept}_all_sum + {%concept}(@val(%obs_idx))
+	next
+	!{%concept}_all_mean = !{%concept}_all_sum / @wcount(%obs_idxs)
+next
+
+' iterate thru each cluster centroid
+for !i = 1 to !K
+	pageselect {%page_work}
+	%centr_opt = "v_centr" + @str(!i) + "_opt"
+	%assoc_obs = {%centr_opt}.@attr("assoc_obs")
+	pageselect {%PAGE_CALLED}
+	{%results}.append "******************************************************************************************"
+	%k_msg = "CLUSTER " + @str(!i) + ":"
+		{%results}.append %k_msg
+	{%results}.append
+	' iterate thru each concept & place statistics for that cluster compared to the general mean
+	for %concept {%concepts}
+		!{%concept}_k_sum = 0
+		for %assoc_ob {%assoc_obs}
+			' must find out which index this associated observation actually is (can be offset by NAs)
+			!assoc_ob = @val(@word(%obs_idxs, @val(%assoc_ob)))	
+			' add centroid's associated observation to the accumulator
+			!{%concept}_k_sum = !{%concept}_k_sum + {%concept}(!assoc_ob)
+		next
+		' calculate the concept's mean across this cluster
+		!{%concept}_k_mean = !{%concept}_k_sum / @wcount(%assoc_obs)
+		' calculate how much greater this concept's mean is than the total mean
+		!{%concept}_k_diff = !{%concept}_k_mean - !{%concept}_all_mean
+		' round to the 1000th place & place in a scalar name with no nested string (cannot convert to string if a program variable is nested within the scalar's definition)
+		!diff = @round(1000 * !{%concept}_k_diff) / 1000
+		if !diff >= 0 then 
+			%diff_msg = "cluster average for " + %concept + " is " + @str(!diff) + " units greater than overall " + %concept + " mean"
+		else
+			%diff_msg = "cluster average for " + %concept + " is " + @str(@abs(!diff)) + " units lesser than overall " + %concept + " mean"
+		endif
+		{%results}.append %diff_msg 	
+	next
+	{%results}.append "******************************************************************************************"
+	{%results}.append 
+next 
+
+' present the final results to the user
+pageselect {%PAGE_CALLED}
+show {%results}
+
+
 
 
