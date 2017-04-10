@@ -170,7 +170,7 @@ for !iter = 1 to !ITERS
 		!row_drop0 = @rows({%m_srs}) + (!K + 1) - !row_drop ' drop ending elements first to not disrupt indexing
 		{%vec} = {%vec}.@droprow(!row_drop0)
 	next
-	' sort to judge cross vector equality
+	' sort to more easily compare different initialization indices
 	{%vec} = @sort({%vec})
 	' place the iteration's initialized centroid observations into the appropriate initialization matrix column
 	colplace({%m_init}, {%vec}, !iter)
@@ -317,7 +317,13 @@ text {%results}
 	{%results}.append %k_num_msg
 %iter_msg = "# of iterations used: " + @str(!ITERS)
 	{%results}.append %iter_msg
-%srs_msg = "Series included in clusters: " + %concepts
+' place a comma between each series for presentation's sake
+%concept_list = ""
+for %concept {%concepts}
+	%concept_list = %concept_list + " " + %concept + ","
+next
+%concept_list = @left(%concept_list, @len(%concept_list) - 1) ' strike the last comma
+%srs_msg = "Series included in clusters: " + %concept_list
 	{%results}.append %srs_msg
 {%results}.append "******************************************************************************************"
 {%results}.append
@@ -336,33 +342,57 @@ for !i = 1 to !K
 	pageselect {%page_work}
 	%centr_opt = "v_centr" + @str(!i) + "_opt"
 	%assoc_obs = {%centr_opt}.@attr("assoc_obs")
+	' append the cluster's id info to the outputted text file
 	pageselect {%PAGE_CALLED}
 	{%results}.append "******************************************************************************************"
 	%k_msg = "CLUSTER " + @str(!i) + ":"
 		{%results}.append %k_msg
 	{%results}.append
+	' append the observations that belong to the cluster in the outputted text file with assoc_obs_dates string
+	%assoc_obs_dates = ""
 	' iterate thru each concept & place statistics for that cluster compared to the general mean
 	for %concept {%concepts}
 		!{%concept}_k_sum = 0
 		for %assoc_ob {%assoc_obs}
 			' must find out which index this associated observation actually is (can be offset by NAs)
 			!assoc_ob = @val(@word(%obs_idxs, @val(%assoc_ob)))	
+			%assoc_obs_dates = %assoc_obs_dates + " " + @otod(!assoc_ob) + ","
 			' add centroid's associated observation to the accumulator
 			!{%concept}_k_sum = !{%concept}_k_sum + {%concept}(!assoc_ob)
 		next
+		' only append the periods associated with the cluster if this is the 1st concept iteration
+		if @wfind(%concepts, %concept) = 1 then
+			{%results}.append "Observations Included in Cluster:"
+			%assoc_obs_dates = @left(%assoc_obs_dates, @len(%assoc_obs_dates) - 1) ' drop the final comma
+				{%results}.append %assoc_obs_dates
+			{%results}.append
+		endif
 		' calculate the concept's mean across this cluster
 		!{%concept}_k_mean = !{%concept}_k_sum / @wcount(%assoc_obs)
-		' calculate how much greater this concept's mean is than the total mean
-		!{%concept}_k_diff = !{%concept}_k_mean - !{%concept}_all_mean
-		' round to the 1000th place & place in a scalar name with no nested string (cannot convert to string if a program variable is nested within the scalar's definition)
-		!diff = @round(1000 * !{%concept}_k_diff) / 1000
-		if !diff >= 0 then 
-			%diff_msg = "cluster average for " + %concept + " is " + @str(!diff) + " units greater than overall " + %concept + " mean"
-		else
-			%diff_msg = "cluster average for " + %concept + " is " + @str(@abs(!diff)) + " units lesser than overall " + %concept + " mean"
+		' calculate how much greater this concept's cluster mean is than the total mean
+		!{%concept}_k_abs_diff = !{%concept}_k_mean - !{%concept}_all_mean
+		' calculate the percent increase of this cluster's concept mean than the total mean (so long as the all obs concept mean is not 0)
+		if !{%concept}_all_mean <> 0 then
+			!{%concept}_k_pct_diff = (!{%concept}_k_mean - !{%concept}_all_mean) / !{%concept}_all_mean
 		endif
-		{%results}.append %diff_msg 	
-	next
+		' round message concepts to the 1000th place & place in a scalar name with no nested string (cannot convert to string if a program variable is nested within the scalar's definition)
+		!concept_k_mean = @round(1000 * !{%concept}_k_mean) / 1000
+		' append the mean of this concept for this centroid to the log message
+		%k_concept_msg = %concept + " cluster average is: " + @str(!concept_k_mean)
+			{%results}.append %k_concept_msg
+		!abs_diff = @round(1000 * !{%concept}_k_abs_diff) / 1000
+		!pct_diff = @round(1000 * !{%concept}_k_pct_diff) / 1000
+		if !abs_diff >= 0 then 
+			%abs_diff_msg = "    i) " + @str(@abs(!abs_diff)) + " units greater than overall " + %concept + " mean"
+			%pct_diff_msg = "    ii) " + @str(@abs(!pct_diff)) + "% greater than overall " + %concept + " mean" 
+		else
+			%abs_diff_msg = "    i) " + @str(@abs(!abs_diff)) + " units less than overall " + %concept + " mean"
+			%pct_diff_msg = "    ii) " + @str(@abs(!pct_diff)) + "% less than overall " + %concept + " mean" 
+		endif
+		{%results}.append %abs_diff_msg 	
+		{%results}.append %pct_diff_msg
+		{%results}.append
+	next 
 	{%results}.append "******************************************************************************************"
 	{%results}.append 
 next 
