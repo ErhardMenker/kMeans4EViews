@@ -75,7 +75,8 @@ endif
 if @hasoption("impute") or @hasoption("interpolate") then
 	!IMPUTE = 1
 endif
-if !IMPUTE and %FREQ = "u" then
+' throw an error if imputation/interpolation is requested for unstructured workfiles, cross section imputation does not make sense
+if !IMPUTE and %FREQ = "U" then
 	seterr "ERROR: cannot impute on an unstructured workfile for k-means clustering add-in"
 endif
 
