@@ -406,7 +406,10 @@ for !i = 1 to !K
 			endif
 		endif
 		{%results}.append %abs_diff_msg 	
-		{%results}.append %pct_diff_msg
+		' only append the percentage difference string message if it was calculated for this concept (will not occur if the mean of the concept is 0)
+		if !pct_diff_defined then
+			{%results}.append %pct_diff_msg
+		endif
 		{%results}.append
 	next 
 	{%results}.append "******************************************************************************************"
