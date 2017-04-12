@@ -85,17 +85,10 @@ endif
 
 ' create a new workfile page to execute work on
 %page_work = @getnextname("scratch")
-while 1 
-	
-	' if the name generated is not a workfile page, create the working page with this name
-	if @pageexist(%page_work) = 0 then
-		pagecreate(page={%page_work}) {%FREQ} {%SMPL}
-		exitloop
-	' if the name generated is a workfile page, append a 0 to the end of the name and reiterate to see if it exists
-	else
-		%page_work = %page_work + "0"
-	endif
+while @pageexist(%page_work)
+	%page_work = %page_work + "0"
 wend
+pagecreate(page={%page_work}) {%FREQ} {%SMPL}
 
 for %srs {%SERIES}
 	' 1) move the series to the  working page
@@ -400,7 +393,5 @@ next
 ' present the final results to the user
 pageselect {%PAGE_CALLED}
 show {%results}
-
-
 
 
