@@ -324,11 +324,17 @@ next
 
 ' calculate the means of the series for all observations used in the cluster analysis (obs indices with NAs are dropped)
 for %concept {%concepts}
+	' accounts for NA series that were not imputed (NA originally, but captured in the obs_idx because of imputation for the normalized series on scratch page) 
+	!missing_obs = 0
 	!{%concept}_all_sum = 0
 	for %obs_idx {%obs_idxs}
-		!{%concept}_all_sum = !{%concept}_all_sum + {%concept}(@val(%obs_idx))
+		if {%concept}(@val(%obs_idx)) <> NA then
+			!{%concept}_all_sum = !{%concept}_all_sum + {%concept}(@val(%obs_idx))
+		else
+			!missing_obs = !missing_obs + 1
+		endif
 	next
-	!{%concept}_all_mean = !{%concept}_all_sum / @wcount(%obs_idxs)
+	!{%concept}_all_mean = !{%concept}_all_sum / (@wcount(%obs_idxs) - !missing_obs)
 next
 
 ' iterate thru each cluster centroid
@@ -346,13 +352,20 @@ for !i = 1 to !K
 	%assoc_obs_dates = ""
 	' iterate thru each concept & place statistics for that cluster compared to the general mean
 	for %concept {%concepts}
+		' initialize a counter that tracks how many missing observations there are for the concept (results from imputed series that don't have an actual value in the original series)
+		!missing_obs = 0
 		!{%concept}_k_sum = 0
 		for %assoc_ob {%assoc_obs}
 			' must find out which index this associated observation actually is (can be offset by NAs)
 			!assoc_ob = @val(@word(%obs_idxs, @val(%assoc_ob)))	
 			%assoc_obs_dates = %assoc_obs_dates + " " + @otod(!assoc_ob) + ","
-			' add centroid's associated observation to the accumulator
-			!{%concept}_k_sum = !{%concept}_k_sum + {%concept}(!assoc_ob)
+			if {%concept}(!assoc_ob) <> NA then
+				' add centroid's associated observation to the accumulator if not NA (occurs if this observation was NA, but imputation was selected so other concept values aren't lost)
+				!{%concept}_k_sum = !{%concept}_k_sum + {%concept}(!assoc_ob)
+			else
+				' increment the counter for the mean divisor
+				!missing_obs = !missing_obs + 1
+			endif
 		next
 		' only append the periods associated with the cluster if this is the 1st concept iteration
 		if @wfind(%concepts, %concept) = 1 then
@@ -361,13 +374,16 @@ for !i = 1 to !K
 				{%results}.append %assoc_obs_dates
 			{%results}.append
 		endif
-		' calculate the concept's mean across this cluster
-		!{%concept}_k_mean = !{%concept}_k_sum / @wcount(%assoc_obs)
+		' calculate the concept's mean across this cluster, remembering series that only weren't NAs in calculation sheet because of imputation
+		!{%concept}_k_mean = !{%concept}_k_sum / (@wcount(%assoc_obs) - !missing_obs)
 		' calculate how much greater this concept's cluster mean is than the total mean
 		!{%concept}_k_abs_diff = !{%concept}_k_mean - !{%concept}_all_mean
 		' calculate the percent increase of this cluster's concept mean than the total mean (so long as the all obs concept mean is not 0)
+		' define a Boolean indicating whether a percentage difference can be calculated (the mean of all obs for the concept cannot equal 0)
+		!pct_diff_defined = 0
 		if !{%concept}_all_mean <> 0 then
 			!{%concept}_k_pct_diff = (!{%concept}_k_mean - !{%concept}_all_mean) / !{%concept}_all_mean
+			!pct_diff_defined = 1 
 		endif
 		' round message concepts to the 1000th place & place in a scalar name with no nested string (cannot convert to string if a program variable is nested within the scalar's definition)
 		!concept_k_mean = @round(1000 * !{%concept}_k_mean) / 1000
@@ -375,13 +391,19 @@ for !i = 1 to !K
 		%k_concept_msg = %concept + " cluster average is: " + @str(!concept_k_mean)
 			{%results}.append %k_concept_msg
 		!abs_diff = @round(1000 * !{%concept}_k_abs_diff) / 1000
-		!pct_diff = @round(1000 * !{%concept}_k_pct_diff) / 1000
+		if !pct_diff_defined then
+			!pct_diff = 100 * (@round(1000 * !{%concept}_k_pct_diff) / 1000)
+		endif
 		if !abs_diff >= 0 then 
 			%abs_diff_msg = "    i) " + @str(@abs(!abs_diff)) + " units greater than overall " + %concept + " mean"
-			%pct_diff_msg = "    ii) " + @str(@abs(!pct_diff)) + "% greater than overall " + %concept + " mean" 
+			if !pct_diff_defined then
+				%pct_diff_msg = "    ii) " + @str(@abs(!pct_diff)) + "% greater than overall " + %concept + " mean" 
+			endif
 		else
 			%abs_diff_msg = "    i) " + @str(@abs(!abs_diff)) + " units less than overall " + %concept + " mean"
-			%pct_diff_msg = "    ii) " + @str(@abs(!pct_diff)) + "% less than overall " + %concept + " mean" 
+			if !pct_diff_defined then
+				%pct_diff_msg = "    ii) " + @str(@abs(!pct_diff)) + "% less than overall " + %concept + " mean" 
+			endif
 		endif
 		{%results}.append %abs_diff_msg 	
 		{%results}.append %pct_diff_msg
@@ -390,6 +412,9 @@ for !i = 1 to !K
 	{%results}.append "******************************************************************************************"
 	{%results}.append 
 next 
+
+' clean up - delete the scratch work page
+pagedelete {%page_work}
 
 ' present the final results to the user
 pageselect {%PAGE_CALLED}
