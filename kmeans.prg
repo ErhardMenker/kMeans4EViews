@@ -156,7 +156,6 @@ next
 ' figure out which observations will be randomly initialized as centroids for each iteration of k-means to be done
 %m_init = @getnextname("m_init")
 matrix(!K, !ITERS) {%m_init}
-%vec_prev = "" ' tests equality when iterated onto the next vector
 for !iter = 1 to !ITERS
 	%vec = @getnextname("v_idxs")
 	vector(@rows({%m_srs})) {%vec} = NA
@@ -190,6 +189,7 @@ logmsg
 !cost_min = NA 
 ' execute k-means clustering across each iteration
 for !iter = 1 to !ITERS
+
 	' extract centroids from the respective randomly initialized matrix column	
 	%centr_idxs = @getnextname("v_centr_idxs")
 	vector {%centr_idxs} = {%m_init}.@col(!iter)
@@ -198,6 +198,8 @@ for !iter = 1 to !ITERS
 		!centr_idx = {%centr_idxs}(!centr)
 		%centr = "v_centr" + @str(!centr) + "_old"
 		vector {%centr} = {%m_srs}.@row(!centr_idx)
+		' eliminate assoc_obs attribute so that no old observations (from previous iterations) are associated with this new cluster centroid
+		{%centr}.setattr("assoc_obs") 
 	next
 	delete {%centr_idxs}
 
@@ -223,7 +225,7 @@ for !iter = 1 to !ITERS
 			%assoc_obs = %assoc_obs + " " + @str(!obs)
 			{%min_centr}.setattr("assoc_obs") %assoc_obs
 		next 
-	
+
 		' go thru each cluster centroid & recalculate it as the mean of each of the newest closest centroids
 		for %centr {%centrs}
 			%assoc_obs = {%centr}.@attr("assoc_obs")
@@ -286,7 +288,7 @@ for !iter = 1 to !ITERS
 			rename v_centr*_new v_centr*_old
 		endif
 	wend ' next move of current cluster centroids
-next ' next random init of cluster centeroids
+next ' next random init of cluster centroids
 
 ' ************************************************
 ' *** CLEAN UP & PRESENT RESULTS ***
