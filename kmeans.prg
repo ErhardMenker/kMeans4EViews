@@ -69,6 +69,14 @@ if %SERIES = "" then
 	logmsg ----- No series argument passed in, defaulting to include all series
 	logmsg
 endif
+' drop series that were passed in that are all NAs
+for %srs {%SERIES}
+	if @obs({%srs}) = 0 then
+		%msg = %srs + " is all NA; dropping " + %srs + " from the k-means clustering process"
+		logmsg ----- %msg
+		%SERIES = @replace(%SERIES, %srs, "")
+	endif
+next
 
 '8) find out whether interpolation/imputation will occur (only valid for time series)
 !IMPUTE = 0
