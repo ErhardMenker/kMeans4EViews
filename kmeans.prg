@@ -37,12 +37,16 @@ endif
 %PAGE_CALLED = @pagename
 
 ' 4) determine the sample
+' a. extract the original sample
+%ORIG_SMPL = @pagesmpl
+' b. extract the passed in sample
 %SMPL = @equaloption("smpl")
 if @hasoption("all") or @hasoption("@all") or @lower(%SMPL) = "all" or @lower(%SMPL) = "@all" then
-	%SMPL = "@all"
+	%SMPL = @pagerange
 endif
+' if no sample is passed in, set the sample to what the workfile's page is at time of k-means call
 if %SMPL = NA then
-	%SMPL = @pagesmpl
+	%SMPL = %ORIG_SMPL
 endif
 
 ' 5) find out how many clusters are being generated
@@ -143,7 +147,7 @@ delete {%g_srs}
 ' throw an error if the # of clusters is greater than or equal to the # of observations
 !obs = @rows({%m_srs})
 if !K >= !obs then
-	seterr "ERROR: there are at least as many clusters as there are complete observations"
+	seterr "ERROR: the # of observations does NOT exceed the # of clusters" 
 endif
 
 ' remove the observation's series values into their own vector
@@ -354,6 +358,8 @@ for !i = 1 to !K
 	%assoc_obs = {%centr_opt}.@attr("assoc_obs")
 	' append the cluster's id info to the outputted text file
 	pageselect {%PAGE_CALLED}
+	' set the sample to what it is for the utility (to keep observation indexing correct)
+	smpl {%SMPL}
 	{%results}.append "******************************************************************************************"
 	%k_msg = "CLUSTER " + @str(!i) + ":"
 		{%results}.append %k_msg
@@ -366,9 +372,9 @@ for !i = 1 to !K
 		!missing_obs = 0
 		!{%concept}_k_sum = 0
 		for %assoc_ob {%assoc_obs}
-			' must find out which index this associated observation actually is (can be offset by NAs)
+			' must find out which index this associated observation actually is (can be offset by NAs or a range that starts earlier than the sample)
 			!assoc_ob = @val(@word(%obs_idxs, @val(%assoc_ob)))	
-			%assoc_obs_dates = %assoc_obs_dates + " " + @otod(!assoc_ob) + ","
+			%assoc_obs_dates = %assoc_obs_dates + " " + @otod(!assoc_ob + @dtoo(@word(@pagesmpl, 1)) - @dtoo(@word(@pagerange, 1))) + ","
 			if {%concept}(!assoc_ob) <> NA then
 				' add centroid's associated observation to the accumulator if not NA (occurs if this observation was NA, but imputation was selected so other concept values aren't lost)
 				!{%concept}_k_sum = !{%concept}_k_sum + {%concept}(!assoc_ob)
@@ -432,5 +438,7 @@ pagedelete {%page_work}
 ' present the final results to the user
 pageselect {%PAGE_CALLED}
 show {%results}
+' restore the sample
+smpl {%ORIG_SMPL}
 
 
