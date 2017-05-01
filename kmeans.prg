@@ -213,6 +213,7 @@ logmsg
 !cost_min = NA 
 ' execute k-means clustering across each iteration
 for !iter = 1 to !ITERS
+	logmsg ----- solving k-means iteration #!iter
 
 	' extract centroids from the respective randomly initialized matrix column	
 	%centr_idxs = @getnextname("v_centr_idxs")
