@@ -119,9 +119,11 @@ for %srs {%SERIES}
 next
 pageselect {%page_work}
 
-' check to make sure that there is at least 1 period of complete observations so group creation of series does not fail
-!complete_obs_exists = 0
-for !obs = 1 to @obssmpl
+' tabulate an index of complete observations in the cluster sample
+%complete_idxs = ""
+!start = @dtoo(@word(@pagesmpl, 1))
+!end = @dtoo(@word(@pagesmpl, 2))
+for !obs = !start to !end
 	!complete_obs = 1
 	for %srs {%SERIES}
 		if {%srs}(!obs) = NA then
@@ -130,12 +132,11 @@ for !obs = 1 to @obssmpl
 		endif
 	next
 	if !complete_obs then
-		!complete_obs_exists = 1
-		exitloop
+		%complete_idxs = %complete_idxs + " " + @str(!obs)
 	endif
 next
 ' throw an error because there are no all non-NA observations for series to be clustered
-if !complete_obs_exists = 0 then
+if @wcount(%complete_idxs) = 0 then
 	seterr "ERROR: no period has no NAs for all series to be clustered"
 endif
 
@@ -143,26 +144,10 @@ endif
 %g_srs = @getnextname("g_srs")
 	group {%g_srs} {%SERIES}
 %m_srs = @getnextname("m_srs")
-	stom({%g_srs}, {%m_srs})
-
-{%m_srs}.setcollabels {%SERIES}
-' figure out which rows correspond to which observations in the group of series & reset matrix labels accordingly
-%complete_idxs = ""
-for !row = 1 to @rows({%g_srs})
-	!complete_idx = 1 
-	for %srs {%SERIES}
-		if {%srs}(!row) = NA then
-			!complete_idx = 0
-			exitloop
-		endif
-	next
-	
-	if !complete_idx then
-		%complete_idxs = %complete_idxs + " " + @str(!row)
-	endif
-next
-{%m_srs}.setrowlabels {%complete_idxs}
-delete {%g_srs}
+stom({%g_srs}, {%m_srs})
+	delete {%g_srs}
+	{%m_srs}.setcollabels {%SERIES}
+	{%m_srs}.setrowlabels {%complete_idxs}
 
 ' throw an error if the # of clusters is greater than or equal to the # of observations
 !obs = @rows({%m_srs})
@@ -461,5 +446,6 @@ pageselect {%PAGE_CALLED}
 show {%results}
 ' restore the sample
 smpl {%ORIG_SMPL}
+
 
 
