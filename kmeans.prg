@@ -119,6 +119,26 @@ for %srs {%SERIES}
 next
 pageselect {%page_work}
 
+' check to make sure that there is at least 1 period of complete observations so group creation of series does not fail
+!complete_obs_exists = 0
+for !obs = 1 to @obssmpl
+	!complete_obs = 1
+	for %srs {%SERIES}
+		if {%srs}(!obs) = NA then
+			!complete_obs = 0
+			exitloop
+		endif
+	next
+	if !complete_obs then
+		!complete_obs_exists = 1
+		exitloop
+	endif
+next
+' throw an error because there are no all non-NA observations for series to be clustered
+if !complete_obs_exists = 0 then
+	seterr "ERROR: no period has no NAs for all series to be clustered"
+endif
+
 ' create a matrix housing the series (dropping any obs with NAs)
 %g_srs = @getnextname("g_srs")
 	group {%g_srs} {%SERIES}
@@ -147,7 +167,7 @@ delete {%g_srs}
 ' throw an error if the # of clusters is greater than or equal to the # of observations
 !obs = @rows({%m_srs})
 if !K >= !obs then
-	seterr "ERROR: the # of observations does NOT exceed the # of clusters" 
+	seterr "ERROR: the # of complete observations does NOT exceed the # of clusters" 
 endif
 
 ' remove the observation's series values into their own vector
