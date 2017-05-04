@@ -1,0 +1,21 @@
+------ Executing k-means clustering!
+
+----- No series argument passed in, defaulting to include all series
+
+
+----- Executing k-means clustering with 3 clusters over 5 iterations
+
+----- solving k-means iteration #1
+------ 0.0625396866084355
+----- solving k-means iteration #2
+------ 0.0625396866084355
+----- solving k-means iteration #3
+------ 0.0625396866084355
+----- solving k-means iteration #4
+------ 0.0625396866084355
+----- solving k-means iteration #5
+------ 0.0625396866084355
+
+----- Presenting results & cleaning up
+
+

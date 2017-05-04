@@ -283,6 +283,7 @@ for !iter = 1 to !ITERS
 				next
 			next 
 			!cost_iter = !cost_iter / @rows({%m_srs})
+logmsg ------ !cost_iter
 			' if this cost function is less than the current best (or on 1st iter), store its centroids as current optimal 1s
 			if !cost_min = NA or !cost_iter < !cost_min then
 				!cost_min = !cost_iter
