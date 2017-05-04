@@ -1,4 +1,4 @@
-'*************************************************************************************************************************************************
+'*********************************************************************************************************************************
 ' MOTIVATION: execute k-means clustering on a cross section or time series collection of series
 
 ' ARGUMENTS:
@@ -14,7 +14,7 @@
 '		NOTE: can pass in standalone "all" or "@all" to change sample to all
 '	e. impute | interpolate = whether to linearly interpolate missing values (defaults to not linearly interpolating)
 '		NOTE: will error if asked to impute on a cross section workfile
-'*************************************************************************************************************************************************
+'*********************************************************************************************************************************
 
 ' *****************************************************************************
 ' *** EXTRACT PASSED IN ARGUMENTS & KEY PARAMETERS ***
@@ -208,7 +208,7 @@ for !iter = 1 to !ITERS
 		!centr_idx = {%centr_idxs}(!centr)
 		%centr = "v_centr" + @str(!centr) + "_old"
 		vector {%centr} = {%m_srs}.@row(!centr_idx)
-		' eliminate assoc_obs attribute so that no old observations (from previous iterations) are associated with this new cluster centroid
+		' initialize assoc_obs attribute to blank for this random init solve
 		{%centr}.setattr("assoc_obs") 
 	next
 	delete {%centr_idxs}
@@ -281,7 +281,7 @@ for !iter = 1 to !ITERS
 				next
 			next 
 			!cost_iter = !cost_iter / @rows({%m_srs})
-			' if this cost function is less than the previous best (or on the 1st iteration), store these centroids as the optimal ones thus far
+			' if this cost function is less than the current best (or on 1st iteration), store its centroids as current optimal ones
 			if !cost_min = NA or !cost_iter < !cost_min then
 				!cost_min = !cost_iter
 				' clear out the previous optimal vectors & rename the current iterated 1s
@@ -324,7 +324,7 @@ text {%results}
 {%results}.append "*** ANALYSIS OF K-MEANS CLUSTERING RESULTS ***"
 {%results}.append "*******************************************************************"
 {%results}.append
-{%results}.append "******************************************************************************************"
+{%results}.append "***************************************************************************************"
 {%results}.append " *** USER SELECTED PARAMETERS ***"
 {%results}.append
 %k_num_msg = "# of clusters: " + @str(!K)
@@ -339,17 +339,17 @@ next
 %concept_list = @left(%concept_list, @len(%concept_list) - 1) ' strike the last comma
 %srs_msg = "Series included in clusters: " + %concept_list
 	{%results}.append %srs_msg
-{%results}.append "******************************************************************************************"
+{%results}.append "***************************************************************************************"
 {%results}.append
 
 ' calculate the means of the series for all observations used in the cluster analysis (obs indices with NAs are dropped)
 for %concept {%concepts}
-	' accounts for NA series that were not imputed (NA originally, but captured in the obs_idx because of imputation for the normalized series on scratch page) 
 	!missing_obs = 0
 	!{%concept}_all_sum = 0
 	for %obs_idx {%obs_idxs}
 		if {%concept}(@val(%obs_idx)) <> NA then
 			!{%concept}_all_sum = !{%concept}_all_sum + {%concept}(@val(%obs_idx))
+		' this line will only execute if imputation occurred for the current observation for the series
 		else
 			!missing_obs = !missing_obs + 1
 		endif
@@ -366,7 +366,7 @@ for !i = 1 to !K
 	pageselect {%PAGE_CALLED}
 	' set the sample to what it is for the utility (to keep observation indexing correct)
 	smpl {%SMPL}
-	{%results}.append "******************************************************************************************"
+	{%results}.append "***************************************************************************************"
 	%k_msg = "CLUSTER " + @str(!i) + ":"
 		{%results}.append %k_msg
 	{%results}.append
@@ -374,18 +374,22 @@ for !i = 1 to !K
 	%assoc_obs_dates = ""
 	' iterate thru each concept & place statistics for that cluster compared to the general mean
 	for %concept {%concepts}
-		' initialize a counter that tracks how many missing observations there are for the concept (results from imputed series that don't have an actual value in the original series)
+		' initialize a counter that tracks how many missing observations there are for the concept 
+		' (necessary for imputed series that are NA in the original series for a given associated observation)
 		!missing_obs = 0
 		!{%concept}_k_sum = 0
 		for %assoc_ob {%assoc_obs}
-			' must find out which index this associated observation actually is (can be offset by NAs or a range that starts earlier than the sample)
+			' must find out which index this associated observation actually is 
+			' (can be offset by NAs or a range that starts earlier than the sample)
 			!assoc_ob = @val(@word(%obs_idxs, @val(%assoc_ob)))	
-			%assoc_obs_dates = %assoc_obs_dates + " " + @otod(!assoc_ob + @dtoo(@word(@pagesmpl, 1)) - @dtoo(@word(@pagerange, 1))) + ","
+			%assoc_obs_date = @otod(!assoc_ob + @dtoo(@word(@pagesmpl, 1)) - @dtoo(@word(@pagerange, 1)))
+			%assoc_obs_dates = %assoc_obs_dates + " " + %assoc_obs_date + ","
+			' add centroid's associated observation to the accumulator if not NA 
+			' (occurs if this observation was NA, but imputation was selected so other concept values aren't lost)
 			if {%concept}(!assoc_ob) <> NA then
-				' add centroid's associated observation to the accumulator if not NA (occurs if this observation was NA, but imputation was selected so other concept values aren't lost)
 				!{%concept}_k_sum = !{%concept}_k_sum + {%concept}(!assoc_ob)
 			else
-				' increment the counter for the mean divisor
+				' increment the counter for the mean divisor (value was NA, does not contribute to sum)
 				!missing_obs = !missing_obs + 1
 			endif
 		next
@@ -396,18 +400,19 @@ for !i = 1 to !K
 				{%results}.append %assoc_obs_dates
 			{%results}.append
 		endif
-		' calculate the concept's mean across this cluster, remembering series that only weren't NAs in calculation sheet because of imputation
+		' calculate the concept's mean across this cluster, only for obs in the original workfile (disregard add-in imputations)
 		!{%concept}_k_mean = !{%concept}_k_sum / (@wcount(%assoc_obs) - !missing_obs)
 		' calculate how much greater this concept's cluster mean is than the total mean
 		!{%concept}_k_abs_diff = !{%concept}_k_mean - !{%concept}_all_mean
-		' calculate the percent increase of this cluster's concept mean than the total mean (so long as the all obs concept mean is not 0)
-		' define a Boolean indicating whether a percentage difference can be calculated (the mean of all obs for the concept cannot equal 0)
+		' calculate the percent increase of this cluster's concept mean than the total mean (iff the all obs concept mean is not 0)
+		' define a Boolean indicating whether a percentage difference can be calculated (the mean of all concept obs can't be 0)
 		!pct_diff_defined = 0
 		if !{%concept}_all_mean <> 0 then
 			!{%concept}_k_pct_diff = (!{%concept}_k_mean - !{%concept}_all_mean) / !{%concept}_all_mean
 			!pct_diff_defined = 1 
 		endif
-		' round message concepts to the 1000th place & place in a scalar name with no nested string (cannot convert to string if a program variable is nested within the scalar's definition)
+		' round message concepts to the 1000th place & place in a scalar name with no nested string 
+		' (cannot convert to string if a program variable is nested within the scalar's definition)
 		!concept_k_mean = @round(1000 * !{%concept}_k_mean) / 1000
 		' append the mean of this concept for this centroid to the log message
 		%k_concept_msg = %concept + " cluster average is: " + @str(!concept_k_mean)
@@ -428,13 +433,13 @@ for !i = 1 to !K
 			endif
 		endif
 		{%results}.append %abs_diff_msg 	
-		' only append the percentage difference string message if it was calculated for this concept (will not occur if the mean of the concept is 0)
+		' only append the concept's percentage difference string message if it was calculated (mean cannot equal 0)
 		if !pct_diff_defined then
 			{%results}.append %pct_diff_msg
 		endif
 		{%results}.append
 	next 
-	{%results}.append "******************************************************************************************"
+	{%results}.append "***************************************************************************************"
 	{%results}.append 
 next 
 
@@ -446,6 +451,5 @@ pageselect {%PAGE_CALLED}
 show {%results}
 ' restore the sample
 smpl {%ORIG_SMPL}
-
 
 
