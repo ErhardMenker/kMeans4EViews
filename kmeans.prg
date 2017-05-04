@@ -404,7 +404,7 @@ for !i = 1 to !K
 		!{%concept}_k_mean = !{%concept}_k_sum / (@wcount(%assoc_obs) - !missing_obs)
 		' calculate how much greater this concept's cluster mean is than the total mean
 		!{%concept}_k_abs_diff = !{%concept}_k_mean - !{%concept}_all_mean
-		' calculate the percent increase of this cluster's concept mean than the total mean (iff the all obs concept mean is not 0)
+		' calculate the percent increase of this cluster's concept mean to total mean (iff the all obs concept mean is not 0)
 		' define a Boolean indicating whether a percentage difference can be calculated (the mean of all concept obs can't be 0)
 		!pct_diff_defined = 0
 		if !{%concept}_all_mean <> 0 then
