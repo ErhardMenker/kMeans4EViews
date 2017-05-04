@@ -20,6 +20,8 @@
 ' *** EXTRACT PASSED IN ARGUMENTS & KEY PARAMETERS ***
 ' *****************************************************************************
 
+logmode logmsg
+
 ' 1) silence log messages if running in quiet mode
 if @hasoption("quiet") then
 	logmode -logmsg

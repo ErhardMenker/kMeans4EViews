@@ -1,0 +1,1 @@
+- Motivation: can the add-in handle a basic time series format?
