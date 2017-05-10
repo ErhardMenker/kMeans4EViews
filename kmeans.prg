@@ -350,8 +350,11 @@ for %concept {%concepts}
 	!missing_obs = 0
 	!{%concept}_all_sum = 0
 	for %obs_idx {%obs_idxs}
-		if {%concept}(@val(%obs_idx)) <> NA then
-			!{%concept}_all_sum = !{%concept}_all_sum + {%concept}(@val(%obs_idx))
+		' must find out which index this observation actually is 
+		' (can be offset by NAs or a range that starts earlier than the sample)
+		!obs_idx_real = @val(%obs_idx) + @dtoo(@word(@pagesmpl, 1)) - @dtoo(@word(@pagerange, 1))
+		if {%concept}(!obs_idx_real) <> NA then
+			!{%concept}_all_sum = !{%concept}_all_sum + {%concept}(!obs_idx_real)
 		' this line will only execute if imputation occurred for the current observation for the series
 		else
 			!missing_obs = !missing_obs + 1
@@ -382,15 +385,15 @@ for !i = 1 to !K
 		!missing_obs = 0
 		!{%concept}_k_sum = 0
 		for %assoc_ob {%assoc_obs}
+			!assoc_ob = @val(@word(%obs_idxs, @val(%assoc_ob)))	
 			' must find out which index this associated observation actually is 
 			' (can be offset by NAs or a range that starts earlier than the sample)
-			!assoc_ob = @val(@word(%obs_idxs, @val(%assoc_ob)))	
-			%assoc_obs_date = @otod(!assoc_ob + @dtoo(@word(@pagesmpl, 1)) - @dtoo(@word(@pagerange, 1)))
-			%assoc_obs_dates = %assoc_obs_dates + " " + %assoc_obs_date + ","
+			!assoc_obs_date = !assoc_ob + @dtoo(@word(@pagesmpl, 1)) - @dtoo(@word(@pagerange, 1))
+			%assoc_obs_dates = %assoc_obs_dates + " " + @otod(!assoc_obs_date) + ","
 			' add centroid's associated observation to the accumulator if not NA 
 			' (occurs if this observation was NA, but imputation was selected so other concept values aren't lost)
-			if {%concept}(!assoc_ob) <> NA then
-				!{%concept}_k_sum = !{%concept}_k_sum + {%concept}(!assoc_ob)
+			if {%concept}(!assoc_obs_date) <> NA then
+				!{%concept}_k_sum = !{%concept}_k_sum + {%concept}(!assoc_obs_date)
 			else
 				' increment the counter for the mean divisor (value was NA, does not contribute to sum)
 				!missing_obs = !missing_obs + 1
