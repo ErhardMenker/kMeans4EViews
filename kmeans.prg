@@ -75,8 +75,17 @@ if %SERIES = "" then
 	logmsg ----- No series argument passed in, defaulting to include all series
 	logmsg
 endif
+if @wcount(%SERIES) = 0 then
+	seterr "ERROR: no usable series available for cluster analysis!"
+endif
 
 for %srs {%SERIES}
+	' throw an error if user inputted a series into series argument that does not exist
+	if @isobject(%srs) = 0 then
+		%msg = "ERROR: " + %srs  + " does not exist! Check add-in call series argument"
+		seterr %msg
+	endif
+
 	' drop series that were passed in that are all NAs
 	if @obs({%srs}) = 0 then
 		%msg = %srs + " is all NA; dropping " + %srs + " from the k-means clustering process"
@@ -91,6 +100,9 @@ for %srs {%SERIES}
 		endif
 	endif
 next
+if @wcount(%SERIES) = 0 then
+	seterr "ERROR: no usable series available for cluster analysis!"
+endif
 
 '8) find out whether interpolation/imputation will occur (only valid for time series)
 !IMPUTE = 0
