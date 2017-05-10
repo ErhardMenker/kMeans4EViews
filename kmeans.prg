@@ -75,12 +75,20 @@ if %SERIES = "" then
 	logmsg ----- No series argument passed in, defaulting to include all series
 	logmsg
 endif
-' drop series that were passed in that are all NAs
+
 for %srs {%SERIES}
+	' drop series that were passed in that are all NAs
 	if @obs({%srs}) = 0 then
 		%msg = %srs + " is all NA; dropping " + %srs + " from the k-means clustering process"
 		logmsg ----- %msg
 		%SERIES = @replace(%SERIES, %srs, "")
+	else
+		' drop series that have no variability to them
+		if @stdev({%srs}) = 0 then
+			%msg = %srs + " has no variability; dropping " + %srs + " from the k-means clustering process"
+			logmsg ----- %msg
+			%SERIES = @replace(%SERIES, %srs, "")
+		endif
 	endif
 next
 
