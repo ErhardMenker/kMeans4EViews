@@ -26,4 +26,10 @@ ur(4) = 15
 ur(5) = 7
 ur(6) = 6
 
-exec .\..\..\kmeans.prg(k = 3, iters = 5) 
+series dropMe = NA ' this series should get dropped because it's all NA
+series excludeMe = NA ' exclude this series in the add-in spec 
+excludeMe(2) = 2
+
+exec .\..\..\kmeans.prg(k = 3, iters = 5, series = sp_gold sp_oil ur dropMe)
+
+

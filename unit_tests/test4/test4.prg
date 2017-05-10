@@ -1,4 +1,4 @@
-' MOTIVATION: does it generate the same results as test1.prg if range is set wider than sample?
+' MOTIVATION: does it generate proper results if I cut off the last observation?
 
 wf a 2002 2011
 
@@ -28,7 +28,6 @@ ur(7) = 15
 ur(8) = 7
 ur(9) = 6
 
-exec .\..\..\kmeans.prg(k = 3, iters = 5)
-
+exec .\..\..\kmeans.prg(k = 3, iters = 5, smpl = 2006 2010)
 
 

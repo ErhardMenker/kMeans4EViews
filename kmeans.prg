@@ -283,7 +283,6 @@ for !iter = 1 to !ITERS
 				next
 			next 
 			!cost_iter = !cost_iter / @rows({%m_srs})
-logmsg ------ !cost_iter
 			' if this cost function is less than the current best (or on 1st iter), store its centroids as current optimal 1s
 			if !cost_min = NA or !cost_iter < !cost_min then
 				!cost_min = !cost_iter
@@ -352,7 +351,7 @@ for %concept {%concepts}
 	for %obs_idx {%obs_idxs}
 		' must find out which index this observation actually is 
 		' (can be offset by NAs or a range that starts earlier than the sample)
-		!obs_idx_real = @val(%obs_idx) + @dtoo(@word(@pagesmpl, 1)) - @dtoo(@word(@pagerange, 1))
+		!obs_idx_real = @val(%obs_idx) + @dtoo(@word(%SMPL, 1)) - @dtoo(@word(@pagerange, 1))
 		if {%concept}(!obs_idx_real) <> NA then
 			!{%concept}_all_sum = !{%concept}_all_sum + {%concept}(!obs_idx_real)
 		' this line will only execute if imputation occurred for the current observation for the series
@@ -388,7 +387,7 @@ for !i = 1 to !K
 			!assoc_ob = @val(@word(%obs_idxs, @val(%assoc_ob)))	
 			' must find out which index this associated observation actually is 
 			' (can be offset by NAs or a range that starts earlier than the sample)
-			!assoc_obs_date = !assoc_ob + @dtoo(@word(@pagesmpl, 1)) - @dtoo(@word(@pagerange, 1))
+			!assoc_obs_date = !assoc_ob + @dtoo(@word(%SMPL, 1)) - @dtoo(@word(@pagerange, 1))
 			%assoc_obs_dates = %assoc_obs_dates + " " + @otod(!assoc_obs_date) + ","
 			' add centroid's associated observation to the accumulator if not NA 
 			' (occurs if this observation was NA, but imputation was selected so other concept values aren't lost)
