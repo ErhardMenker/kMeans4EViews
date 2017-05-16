@@ -225,6 +225,7 @@ logmsg
 ' execute k-means clustering across each iteration
 for !iter = 1 to !ITERS
 	logmsg ----- solving k-means iteration #!iter
+	tic
 
 	' extract centroids from the respective randomly initialized matrix column	
 	%centr_idxs = @getnextname("v_centr_idxs")
@@ -321,6 +322,8 @@ for !iter = 1 to !ITERS
 			rename v_centr*_new v_centr*_old
 		endif
 	wend ' next move of current cluster centroids
+	!time = @toc
+	logmsg ------ solve took !time seconds
 next ' next random init of cluster centroids
 
 ' ************************************************
