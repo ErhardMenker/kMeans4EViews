@@ -71,19 +71,19 @@ if !ITERS = NA then
 endif
 
 ' 7) find out the series that are to be included in the analysis
-%SERIES = @equaloption("SERIES")
+%SERIES_LIST = @equaloption("SERIES")
 ' if series argument was not passed in, set arg equal to all series (excluding residuals)
-if %SERIES = "" then
-	%SERIES = @wlookup("*", "series")
+if %SERIES_LIST = "" then
+	%SERIES_LIST = @wlookup("*", "series")
 	
 	logmsg ----- No series argument passed in, defaulting to include all series
 	logmsg
 endif
-if @wcount(%SERIES) = 0 then
+if @wcount(%SERIES_LIST) = 0 then
 	seterr "ERROR: no usable series available for cluster analysis!"
 endif
 
-for %srs {%SERIES}
+for %srs {%SERIES_LIST}
 	' throw an error if user inputted a series into series argument that does not exist
 	if @isobject(%srs) = 0 then
 		%msg = "ERROR: " + %srs  + " does not exist! Check add-in call series argument"
@@ -94,17 +94,17 @@ for %srs {%SERIES}
 	if @obs({%srs}) = 0 then
 		%msg = %srs + " is all NA; dropping " + %srs + " from the k-means clustering process"
 		logmsg ----- %msg
-		%SERIES = @replace(%SERIES, %srs, "")
+		%SERIES_LIST = @replace(%SERIES_LIST, %srs, "")
 	else
 		' drop series that have no variability to them
 		if @stdev({%srs}) = 0 then
 			%msg = %srs + " has no variability; dropping " + %srs + " from the k-means clustering process"
 			logmsg ----- %msg
-			%SERIES = @replace(%SERIES, %srs, "")
+			%SERIES_LIST = @replace(%SERIES_LIST, %srs, "")
 		endif
 	endif
 next
-if @wcount(%SERIES) = 0 then
+if @wcount(%SERIES_LIST) = 0 then
 	seterr "ERROR: no usable series available for cluster analysis!"
 endif
 
@@ -129,7 +129,7 @@ while @pageexist(%page_work)
 wend
 pagecreate(page={%page_work}) {%FREQ} {%SMPL}
 
-for %srs {%SERIES}
+for %srs {%SERIES_LIST}
 	' 1) move the series to the  working page
 	copy {%PAGE_CALLED}\{%srs} {%page_work}\{%srs}
 
@@ -151,7 +151,7 @@ pageselect {%page_work}
 !end = @dtoo(@word(@pagesmpl, 2))
 for !obs = !start to !end
 	!complete_obs = 1
-	for %srs {%SERIES}
+	for %srs {%SERIES_LIST}
 		if {%srs}(!obs) = NA then
 			!complete_obs = 0
 			exitloop
@@ -163,16 +163,16 @@ for !obs = !start to !end
 next
 ' throw an error because there are no all non-NA observations for series to be clustered
 if @wcount(%complete_idxs) = 0 then
-	seterr "ERROR: no period has no NAs for all series to be clustered"
+	seterr "ERROR: no period has no NAs for all the series to be clustered"
 endif
 
 ' create a matrix housing the series (dropping any obs with NAs)
 %g_srs = @getnextname("g_srs")
-	group {%g_srs} {%SERIES}
+	group {%g_srs} {%SERIES_LIST}
 %m_srs = @getnextname("m_srs")
-stom({%g_srs}, {%m_srs})
+stom({%g_srs}, {%m_srs}) ' stom will drop any row with at least 1 NA
 	delete {%g_srs}
-	{%m_srs}.setcollabels {%SERIES}
+	{%m_srs}.setcollabels {%SERIES_LIST}
 	{%m_srs}.setrowlabels {%complete_idxs}
 
 ' throw an error if the # of clusters is greater than or equal to the # of observations
@@ -190,27 +190,29 @@ next
 
 ' figure out which observations will be randomly initialized as centroids for each iteration of k-means to be done
 %m_init = @getnextname("m_init")
-matrix(!K, !ITERS) {%m_init}
+	matrix(!K, !ITERS) {%m_init}
+%idxs_all = @getnextname("v_idxs")
+	vector(@rows({%m_srs})) {%idxs_all} = NA
+' fill in the k-means iteration's vector where each element is its index in the vector
+for !obs_iter = 1 to @rows({%m_srs})
+	{%idxs_all}(!obs_iter) = !obs_iter
+next
+' continuously scatter the vector's elements and take the 1st K entries as that iteration's seed 
 for !iter = 1 to !ITERS
-	%vec = @getnextname("v_idxs")
-	vector(@rows({%m_srs})) {%vec} = NA
-	' fill in the k-means iteration's vector where each element is the vector's index
-	for !obs_iter = 1 to @rows({%m_srs})
-		{%vec}(!obs_iter) = !obs_iter
-	next
 	' scatter the vector's entries (set a seed to ensure reproducibility)
 	rndseed !iter
-	{%vec} = @permute({%vec})
+	{%idxs_all} = @permute({%idxs_all})
+	%idxs_init = @getnextname("v_idxs_init")
+	vector(!K) {%idxs_init}
 	' drop the rows not in the top !K (not sure how to do this quicker)
-	for !row_drop = (!K + 1) to @rows({%m_srs})
-		!row_drop0 = @rows({%m_srs}) + (!K + 1) - !row_drop ' drop ending elements first to not disrupt indexing
-		{%vec} = {%vec}.@droprow(!row_drop0)
+	for !idx = 1 to !K
+		{%idxs_init}(!idx) = {%idxs_all}(!idx)
 	next
 	' sort to more easily compare different initialization indices
-	{%vec} = @sort({%vec})
+	{%idxs_init} = @sort({%idxs_init})
 	' place the iteration's initialized centroid observations into the appropriate initialization matrix column
-	colplace({%m_init}, {%vec}, !iter)
-	delete {%vec}
+	colplace({%m_init}, {%idxs_init}, !iter)
+	delete {%idxs_init}
 next
 
 '**************************************************
@@ -257,8 +259,7 @@ for !iter = 1 to !ITERS
 				endif
 			next 
 			' indicate in the obs' closest centroid that this obs is closest to particular centroid
-			%assoc_obs = {%min_centr}.@attr("assoc_obs")
-			%assoc_obs = %assoc_obs + " " + @str(!obs)
+			%assoc_obs = {%min_centr}.@attr("assoc_obs") + " " + @str(!obs)
 			{%min_centr}.setattr("assoc_obs") %assoc_obs
 		next 
 
@@ -306,7 +307,6 @@ for !iter = 1 to !ITERS
 					!cost_iter = !cost_iter + !clust_cost
 				next
 			next 
-			!cost_iter = !cost_iter / @rows({%m_srs})
 			' if this cost function is less than the current best (or on 1st iter), store its centroids as current optimal 1s
 			if !cost_min = NA or !cost_iter < !cost_min then
 				!cost_min = !cost_iter
