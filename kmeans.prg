@@ -146,18 +146,15 @@ next
 pageselect {%page_work}
 
 ' tabulate an index of complete observations in the cluster sample
+%g_srs_list = @getnextname("g_series_list")
+	group {%g_srs_list} {%SERIES_LIST}
+%is_row_na = @getnextname("is_row_na")
+	series {%is_row_na} = @rnas({%g_srs_list})
+	delete {%g_srs_list}
 %complete_idxs = ""
-!start = @dtoo(@word(@pagesmpl, 1))
-!end = @dtoo(@word(@pagesmpl, 2))
-for !obs = !start to !end
-	!complete_obs = 1
-	for %srs {%SERIES_LIST}
-		if {%srs}(!obs) = NA then
-			!complete_obs = 0
-			exitloop
-		endif
-	next
-	if !complete_obs then
+for !obs = 1 to @rows({%is_row_na})
+	' if no NAs in this row, append it to the complete observations
+	if {%is_row_na}(!obs) = 0 then
 		%complete_idxs = %complete_idxs + " " + @str(!obs)
 	endif
 next
