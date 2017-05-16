@@ -37,7 +37,7 @@ endif
 %FREQ = @pagefreq
 
 ' 3) name of the current page when add-in is called
-%PAGE_CALLED = @pagename
+%ORIG_PAGE = @pagename
 
 ' 4) determine the sample
 ' a. extract the original sample
@@ -123,15 +123,15 @@ endif
 '***************************************
 
 ' create a new workfile page to execute work on
-%page_work = @getnextname("scratch")
-while @pageexist(%page_work)
-	%page_work = %page_work + "0"
+%work_page = @getnextname("scratch")
+while @pageexist(%work_page)
+	%work_page = %work_page + "0"
 wend
-pagecreate(page={%page_work}) {%FREQ} {%SMPL}
+pagecreate(page={%work_page}) {%FREQ} {%SMPL}
 
 for %srs {%SERIES_LIST}
 	' 1) move the series to the  working page
-	copy {%PAGE_CALLED}\{%srs} {%page_work}\{%srs}
+	copy {%ORIG_PAGE}\{%srs} {%work_page}\{%srs}
 
 	' 2) impute series (if requested)
 	if !IMPUTE then
@@ -143,7 +143,7 @@ for %srs {%SERIES_LIST}
 	' 3) normalize the series (to prevent differently scaled series from having disproportionate impacts on cluster centroids)
 	{%srs} = ({%srs} - @mean({%srs})) / @stdev({%srs})	
 next
-pageselect {%page_work}
+pageselect {%work_page}
 
 ' tabulate an index of complete observations in the cluster sample
 %g_srs_list = @getnextname("g_series_list")
@@ -166,32 +166,32 @@ endif
 ' create a matrix housing the series (dropping any obs with NAs)
 %g_srs = @getnextname("g_srs")
 	group {%g_srs} {%SERIES_LIST}
-%m_srs = @getnextname("m_srs")
-stom({%g_srs}, {%m_srs}) ' stom will drop any row with at least 1 NA
+%m_norm_srs = @getnextname("m_srs")
+stom({%g_srs}, {%m_norm_srs}) ' stom will drop any row with at least 1 NA
 	delete {%g_srs}
-	{%m_srs}.setcollabels {%SERIES_LIST}
-	{%m_srs}.setrowlabels {%complete_idxs}
+	{%m_norm_srs}.setcollabels {%SERIES_LIST}
+	{%m_norm_srs}.setrowlabels {%complete_idxs}
 
 ' throw an error if the # of clusters is greater than or equal to the # of observations
-!obs = @rows({%m_srs})
+!obs = @rows({%m_norm_srs})
 if !K >= !obs then
 	seterr "ERROR: the # of complete observations does NOT exceed the # of clusters" 
 endif
 
 ' remove the observation's series values into their own vector
-for !obs = 1 to @rows({%m_srs})
+for !obs = 1 to @rows({%m_norm_srs})
 	%obs = "v_obs" + @str(!obs)
 	 ' extract the observation's values
-	vector {%obs} = {%m_srs}.@row(!obs)
+	vector {%obs} = {%m_norm_srs}.@row(!obs)
 next
 
 ' figure out which observations will be randomly initialized as centroids for each iteration of k-means to be done
 %m_init = @getnextname("m_init")
 	matrix(!K, !ITERS) {%m_init}
 %idxs_all = @getnextname("v_idxs")
-	vector(@rows({%m_srs})) {%idxs_all} = NA
+	vector(@rows({%m_norm_srs})) {%idxs_all} = NA
 ' fill in the k-means iteration's vector where each element is its index in the vector
-for !obs_iter = 1 to @rows({%m_srs})
+for !obs_iter = 1 to @rows({%m_norm_srs})
 	{%idxs_all}(!obs_iter) = !obs_iter
 next
 ' continuously scatter the vector's elements and take the 1st K entries as that iteration's seed 
@@ -232,7 +232,7 @@ for !iter = 1 to !ITERS
 	for !centr = 1 to !K
 		!centr_idx = {%centr_idxs}(!centr)
 		%centr = "v_centr" + @str(!centr) + "_old"
-		vector {%centr} = {%m_srs}.@row(!centr_idx)
+		vector {%centr} = {%m_norm_srs}.@row(!centr_idx)
 		' initialize assoc_obs attribute to blank for this random init solve
 		{%centr}.setattr("assoc_obs") 
 	next
@@ -243,7 +243,7 @@ for !iter = 1 to !ITERS
 
 		' iterate through each observation & find its closest centroid
 		%centrs = @wlookup("v_centr*old", "vector")
-		for !obs = 1 to @rows({%m_srs})
+		for !obs = 1 to @rows({%m_norm_srs})
 			%obs = "v_obs" + @str(!obs)
 			'  find the centroid the observation is closest to
 			!min_dist = NA
@@ -266,12 +266,12 @@ for !iter = 1 to !ITERS
 			!clust_num = @wcount(%assoc_obs)
 			%m_centr = @replace(%centr, "V_", "M_")
 			' initialize the cluster's matrix of current associated points
-			matrix(!clust_num, @columns({%m_srs})) {%m_centr} = NA
+			matrix(!clust_num, @columns({%m_norm_srs})) {%m_centr} = NA
 			!clust_row = 1
 			' fill the cluster's matrix with its observations
 			for %closest_clust {%assoc_obs}
 				!closest_clust = @val(%closest_clust)
-				vector v_temp = {%m_srs}.@row(!closest_clust)
+				vector v_temp = {%m_norm_srs}.@row(!closest_clust)
 				rowplace({%m_centr}, @transpose(v_temp), !clust_row) 
 				delete v_temp
 				!clust_row = !clust_row + 1
@@ -336,11 +336,11 @@ logmsg
 ' i) the closest observations to each cluster centroid
 ' ii) the indices of observations used in the cluster analysis (excludes observations where any included series has an NA)
 
-%concepts = {%m_srs}.@collabels ' ordering of series for cluster centroid coordinates 
-%obs_idxs = {%m_srs}.@rowlabels ' indices of used observations
+%concepts = {%m_norm_srs}.@collabels ' ordering of series for cluster centroid coordinates 
+%obs_idxs = {%m_norm_srs}.@rowlabels ' indices of used observations
 
 ' create a text file to present the results
-pageselect {%PAGE_CALLED}
+pageselect {%ORIG_PAGE}
 %results = @getnextname("kmeans_results")
 text {%results}
 {%results}.append "*******************************************************************"
@@ -385,11 +385,11 @@ next
 
 ' iterate thru each cluster centroid
 for !i = 1 to !K
-	pageselect {%page_work}
+	pageselect {%work_page}
 	%centr_opt = "v_centr" + @str(!i) + "_opt"
 	%assoc_obs = {%centr_opt}.@attr("assoc_obs")
 	' append the cluster's id info to the outputted text file
-	pageselect {%PAGE_CALLED}
+	pageselect {%ORIG_PAGE}
 	' set the sample to what it is for the utility (to keep observation indexing correct)
 	smpl {%SMPL}
 	{%results}.append "***************************************************************************************"
@@ -470,10 +470,10 @@ for !i = 1 to !K
 next 
 
 ' clean up - delete the scratch work page
-pagedelete {%page_work}
+pagedelete {%work_page}
 
 ' present the final results to the user
-pageselect {%PAGE_CALLED}
+pageselect {%ORIG_PAGE}
 show {%results}
 ' restore the sample
 smpl {%ORIG_SMPL}
