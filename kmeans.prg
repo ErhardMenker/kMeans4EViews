@@ -146,11 +146,11 @@ next
 pageselect {%work_page}
 
 ' tabulate an index of complete observations in the cluster sample
-%g_srs_list = @getnextname("g_series_list")
-	group {%g_srs_list} {%SERIES_LIST}
+%g_norm_srs_list = @getnextname("g_series_list")
+	group {%g_norm_srs_list} {%SERIES_LIST}
 %is_row_na = @getnextname("is_row_na")
-	series {%is_row_na} = @rnas({%g_srs_list})
-	delete {%g_srs_list}
+	series {%is_row_na} = @rnas({%g_norm_srs_list})
+	delete {%g_norm_srs_list}
 %complete_idxs = ""
 for !obs = 1 to @rows({%is_row_na})
 	' if no NAs in this row, append it to the complete observations
@@ -164,11 +164,11 @@ if @wcount(%complete_idxs) = 0 then
 endif
 
 ' create a matrix housing the series (dropping any obs with NAs)
-%g_srs = @getnextname("g_srs")
-	group {%g_srs} {%SERIES_LIST}
+%g_norm_srs = @getnextname("g_srs")
+	group {%g_norm_srs} {%SERIES_LIST}
 %m_norm_srs = @getnextname("m_srs")
-stom({%g_srs}, {%m_norm_srs}) ' stom will drop any row with at least 1 NA
-	delete {%g_srs}
+stom({%g_norm_srs}, {%m_norm_srs}) ' stom will drop any row with at least 1 NA
+	delete {%g_norm_srs}
 	{%m_norm_srs}.setcollabels {%SERIES_LIST}
 	{%m_norm_srs}.setrowlabels {%complete_idxs}
 
