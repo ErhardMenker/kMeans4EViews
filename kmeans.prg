@@ -158,6 +158,7 @@ for !obs = 1 to @rows({%is_row_na})
 		%complete_idxs = %complete_idxs + " " + @str(!obs)
 	endif
 next
+delete {%is_row_na}
 ' throw an error because there are no all non-NA observations for series to be clustered
 if @wcount(%complete_idxs) = 0 then
 	seterr "ERROR: no period has no NAs for all the series to be clustered"
@@ -269,9 +270,8 @@ for !iter = 1 to !ITERS
 			matrix(!clust_num, @columns({%m_norm_srs})) {%m_centr} = NA
 			!clust_row = 1
 			' fill the cluster's matrix with its observations
-			for %closest_clust {%assoc_obs}
-				!closest_clust = @val(%closest_clust)
-				vector v_temp = {%m_norm_srs}.@row(!closest_clust)
+			for %assoc_ob {%assoc_obs}
+				vector v_temp = {%m_norm_srs}.@row(@val(%assoc_ob))
 				rowplace({%m_centr}, @transpose(v_temp), !clust_row) 
 				delete v_temp
 				!clust_row = !clust_row + 1
