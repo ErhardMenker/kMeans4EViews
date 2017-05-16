@@ -1,5 +1,6 @@
 '*********************************************************************************************************************************
 ' MOTIVATION: execute k-means clustering on a cross section or time series collection of series
+' http://cs229.stanford.edu/notes/cs229-notes7a.pdf
 
 ' ARGUMENTS:
 
@@ -55,6 +56,9 @@ endif
 !K = @val(@equaloption("k"))
 if !K = NA then
 	seterr "ERROR: User has not inputted a numeric argument for k in call to k-means clustering utility"
+endif
+if !K <= 0 or @mod(!K, 1) <> 0 then
+	seterr "ERROR: K must be a positive integer"
 endif
 
 ' 6) find out how many iterations of k-means are to be done
