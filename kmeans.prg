@@ -205,7 +205,7 @@ for !iter = 1 to !ITERS
 	{%idxs_all} = @permute({%idxs_all})
 	%idxs_init = @getnextname("v_idxs_init")
 	vector(!K) {%idxs_init}
-	' drop the rows not in the top !K (not sure how to do this quicker)
+	' fill in the seeded vector with the 1st K values of the scattered list of indices
 	for !idx = 1 to !K
 		{%idxs_init}(!idx) = {%idxs_all}(!idx)
 	next
