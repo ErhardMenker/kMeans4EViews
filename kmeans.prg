@@ -244,7 +244,9 @@ for !iter = 1 to !ITERS
 	delete {%centr_idxs}
 
 	' only exit while loop when the clusters have reached their optima
+	!iter_count = 0
 	while 1
+		!iter_count = !iter_count + 1
 
 		' iterate through each observation & find its closest centroid
 		%centrs = @wlookup("v_centr*old", "vector")
@@ -326,7 +328,7 @@ for !iter = 1 to !ITERS
 		endif
 	wend ' next move of current cluster centroids
 	!time = @toc
-	logmsg ------ solve took !time seconds
+	logmsg ------ !iter_count iterations [!time seconds]
 next ' next random init of cluster centroids
 
 ' ************************************************
