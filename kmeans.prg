@@ -13,8 +13,9 @@
 '	c. series = a space delimited string of series included in analysis (defaults to all series)
 '	d. smpl = the sample to execute the procedure over (defaults to the current sample)
 '		NOTE: can pass in standalone "all" or "@all" to change sample to all
-'	e. impute | interpolate = whether to linearly interpolate missing values (defaults to not linearly interpolating)
-'		NOTE: will error if asked to impute on a cross section workfile
+'	e. impute | interpolate = whether to interpolate missing values (defaults to not linearly interpolating)
+'		For time series, execute linear interpolation
+'		For cross section, fill in any NAs with the median of the series
 '*********************************************************************************************************************************
 
 ' *****************************************************************************
@@ -108,14 +109,10 @@ if @wcount(%SERIES_LIST) = 0 then
 	seterr "ERROR: no usable series available for cluster analysis!"
 endif
 
-'8) find out whether interpolation/imputation will occur (only valid for time series)
+'8) find out whether interpolation/imputation of series will occur 
 !IMPUTE = 0
 if @hasoption("impute") or @hasoption("interpolate") then
 	!IMPUTE = 1
-endif
-' throw an error if imputation/interpolation is requested for unstructured workfiles, cross section imputation does not make sense
-if !IMPUTE and %FREQ = "U" then
-	seterr "ERROR: cannot impute on an unstructured workfile for k-means clustering add-in"
 endif
 
 '***************************************
@@ -133,11 +130,17 @@ for %srs {%SERIES_LIST}
 	' 1) move the series to the  working page
 	copy {%ORIG_PAGE}\{%srs} {%work_page}\{%srs}
 
-	' 2) impute series (if requested)
+	' 2) impute time series (if requested)
 	if !IMPUTE then
-		{%srs}.ipolate(type=lin) {%srs}_dlt
-		delete {%srs}
-		rename {%srs}_dlt {%srs}
+		' case 1: unstructured wf
+		if %FREQ = "U" then
+			{%srs} = @nan({%srs}, @median({%srs}))
+		' case 2: time series wf
+		else
+			{%srs}.ipolate(type=lin) {%srs}_dlt
+			delete {%srs}
+			rename {%srs}_dlt {%srs} 
+		endif
 	endif
 
 	' 3) normalize the series (to prevent differently scaled series from having disproportionate impacts on cluster centroids)

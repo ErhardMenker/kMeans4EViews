@@ -6,6 +6,7 @@
 SUBROUTINE TEST1
 	wf u 1 10
 	series x = @nrnd
+		x(5) = NA
 	series y = @nrnd
 	exec .\..\..\kmeans.prg(k = 3, iters = 5, interpolate)
 ENDSUB
