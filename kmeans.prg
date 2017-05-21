@@ -272,7 +272,6 @@ for !iter = 1 to !ITERS
 	' only exit while loop when the clusters have reached their optima
 	!iter_count = 0
 	while 1
-		!iter_count = !iter_count + 1
 
 		' iterate through each observation & find its closest centroid
 		%centrs = @wlookup("v_centr*old", "vector")
@@ -281,6 +280,7 @@ for !iter = 1 to !ITERS
 			'  find the centroid the observation is closest to
 			!min_dist = NA
 			for %centr {%centrs} 
+				' distance is the Euclidean distance in n dimensional space (# of series) 
 				!dist = @sqrt(@sum(@epow({%obs} - {%centr}, 2)))
 				' if this centroid is the closest centroid so far, take note
 				if !min_dist = NA or !dist < !min_dist then
@@ -293,37 +293,42 @@ for !iter = 1 to !ITERS
 			{%min_centr}.setattr("assoc_obs") %assoc_obs
 		next 
 
-		' go thru each cluster centroid & recalculate it as the mean of each of the newest closest centroids
-		for %centr {%centrs}
-			%assoc_obs = {%centr}.@attr("assoc_obs")
-			!clust_num = @wcount(%assoc_obs)
-			%m_centr = @replace(%centr, "V_", "M_")
-			' initialize the cluster's matrix of current associated points
-			matrix(!clust_num, @columns({%m_norm_srs})) {%m_centr} = NA
-			!clust_row = 1
-			' fill the cluster's matrix with its observations
-			for %assoc_ob {%assoc_obs}
-				vector v_temp = {%m_norm_srs}.@row(@val(%assoc_ob))
-				rowplace({%m_centr}, @transpose(v_temp), !clust_row) 
-				delete v_temp
-				!clust_row = !clust_row + 1
+		' if the max # of allowable movement of clusters has not been reached, move them
+		if !MAX_ITERS = NA or (!iter_count <> !MAX_ITERS) then
+			' go thru each cluster centroid & recalculate it as the mean of each of the newest closest centroids
+			for %centr {%centrs}
+				%assoc_obs = {%centr}.@attr("assoc_obs")
+				!clust_num = @wcount(%assoc_obs)
+				%m_centr = @replace(%centr, "V_", "M_")
+				' initialize the cluster's matrix of current associated points
+				matrix(!clust_num, @columns({%m_norm_srs})) {%m_centr} = NA
+				!clust_row = 1
+				' fill the cluster's matrix with its observations
+				for %assoc_ob {%assoc_obs}
+					vector v_temp = {%m_norm_srs}.@row(@val(%assoc_ob))
+					rowplace({%m_centr}, @transpose(v_temp), !clust_row) 
+					delete v_temp
+					!clust_row = !clust_row + 1
+				next
+				' take the mean of the cluster's series
+				%centr_new = @replace(%centr, "_OLD", "_NEW")
+				vector {%centr_new} = @cmean({%m_centr})
 			next
-			' take the mean of the cluster's series
-			%centr_new = @replace(%centr, "_OLD", "_NEW")
-			vector {%centr_new} = @cmean({%m_centr})
-		next
+	
+			' determine if it definitively can be concluded that an optimum is reached
+			!optimum_reached = 1
+			%centrs_old = @wlookup("v_centr*_old", "vector")
+			for %centr_old {%centrs_old}
+				%centr_new = @replace(%centr_old, "_OLD", "_NEW")
+				if {%centr_old} <> {%centr_new} then
+					!optimum_reached = 0
+					exitloop
+				endif
+			next		
+		endif
 
-		' determine if it definitively can be concluded that an optimum is reached
-		!optimum_reached = 1
-		%centrs_old = @wlookup("v_centr*_old", "vector")
-		for %centr_old {%centrs_old}
-			%centr_new = @replace(%centr_old, "_OLD", "_NEW")
-			if {%centr_old} <> {%centr_new} then
-				!optimum_reached = 0
-				exitloop
-			endif
-		next		
-		if !optimum_reached then
+		' a solution has analytically been reached or max allowed iterations achieved, vet results
+		if !optimum_reached or (!iter_count = !MAX_ITERS) then
 			delete v_centr*_new ' don't need this anymore - just used them to verify that cluster solution converged
 			' calculate the cost function of the solution
 			!cost_iter = 0
@@ -352,6 +357,9 @@ for !iter = 1 to !ITERS
 			delete m_centr*_old v_centr*_old
 			rename v_centr*_new v_centr*_old
 		endif
+
+		' an iteration is clocked when the means of the clusters have been moved
+		!iter_count = !iter_count + 1
 	wend ' next move of current cluster centroids
 	!time = @toc
 	logmsg ------ !iter_count iterations [!time seconds]
