@@ -9,11 +9,13 @@
 
 ' 2) Optional -
 '	a. quiet = shut off log messages (log messages left on if not specified)
-'	b. iters = the number of full solution iterations to run (defaults to 1)
-'	c. series = a space delimited string of series included in analysis (defaults to all series)
-'	d. smpl = the sample to execute the procedure over (defaults to the current sample)
+'	b. iters = the number of full solution iterations to run (defaults to 3)
+'	c. max_iters = the max allowed number of cluster moves for a given init (defaults to 10)
+'		setting argument to NONE means that # of times clusters may move is not capped
+'	d. series = a space delimited string of series included in analysis (defaults to all series)
+'	e. smpl = the sample to execute the procedure over (defaults to the current sample)
 '		NOTE: can pass in standalone "all" or "@all" to change sample to all
-'	e. impute | interpolate = whether to interpolate missing values (defaults to not linearly interpolating)
+'	f. impute | interpolate = whether to interpolate missing values (defaults to not linearly interpolating)
 '		For time series, execute linear interpolation
 '		For cross section, fill in any NAs with the median of the series
 '*********************************************************************************************************************************
@@ -65,14 +67,38 @@ endif
 ' 6) find out how many iterations of k-means are to be done
 !ITERS = @val(@equaloption("iters"))
 if !ITERS = NA then
-	!ITERS = 1 	
+	!ITERS = 3
 
-	logmsg ----- Setting # of k-means full iteration solutions to default of 1
+	logmsg ----- Setting # of k-means full iteration solutions to default of 3
 	logmsg
 endif
+if !ITERS <= 0 or @mod(!ITERS, 1) <> 0 then
+	seterr "ERROR: # of initializations must be a positive integer"
+endif
 
-' 7) find out the series that are to be included in the analysis
-%SERIES_LIST = @equaloption("SERIES")
+' 7) find the max # of iterations of cluster moves for a given random init
+%MAX_ITERS = @equaloption("max_iters")
+' if max_iters is not specified, default it to 10
+if %MAX_ITERS = "" then
+	!MAX_ITERS = 10
+
+	logmsg ----- Setting max # of iterations for given cluster init to default of 10
+	logmsg
+else
+	' if max_iters is set to NONE, set !MAX_ITERS to NA	
+	if @upper(%MAX_ITERS) = "NONE" then
+		!MAX_ITERS = NA
+	else
+		' find out what positive integer max_iters was set equal to
+		!MAX_ITERS = @val(%MAX_ITERS)
+		if !MAX_ITERS <= 0 or @mod(!MAX_ITERS, 1) <> 0 then
+			seterr "ERROR: # of maximum allowable iterations must be a positive integer"
+		endif
+	endif
+endif
+
+' 8) find out the series that are to be included in the analysis
+%SERIES_LIST = @equaloption("series")
 ' if series argument was not passed in, set arg equal to all series (excluding residuals)
 if %SERIES_LIST = "" then
 	%SERIES_LIST = @wlookup("*", "series")
@@ -109,7 +135,7 @@ if @wcount(%SERIES_LIST) = 0 then
 	seterr "ERROR: no usable series available for cluster analysis!"
 endif
 
-'8) find out whether interpolation/imputation of series will occur 
+' 9) find out whether interpolation/imputation of series will occur 
 !IMPUTE = 0
 if @hasoption("impute") or @hasoption("interpolate") then
 	!IMPUTE = 1
