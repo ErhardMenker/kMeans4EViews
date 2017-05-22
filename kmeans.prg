@@ -296,24 +296,25 @@ for !init = 1 to !INITS
 		' if the max # of allowable movement of clusters has not been reached, move them
 		if !MAX_ITERS = NA or (!iter_count <> !MAX_ITERS) then
 			' go thru each cluster centroid & recalculate it as the mean of each of the newest closest centroids
+
 			for %centr {%centrs}
-				%assoc_obs = {%centr}.@attr("assoc_obs")
-				!clust_num = @wcount(%assoc_obs)
-				%m_centr = @replace(%centr, "V_", "M_")
-				' initialize the cluster's matrix of current associated points
-				matrix(!clust_num, @columns({%m_norm_srs})) {%m_centr} = NA
-				!clust_row = 1
-				' fill the cluster's matrix with its observations
-				for %assoc_ob {%assoc_obs}
-					vector v_temp = {%m_norm_srs}.@row(@val(%assoc_ob))
-					rowplace({%m_centr}, @transpose(v_temp), !clust_row) 
-					delete v_temp
-					!clust_row = !clust_row + 1
+				%obs_idxs = {%centr}.@attr("assoc_obs")
+				%obs_prds = ""
+				' convert the associated observations from indices to actual obs that can be defined by a sample 
+				for %obs_idx {%obs_idxs}
+					%obs_prds = %obs_prds + @otod(@val(%obs_idx)) + " " + @otod(@val(%obs_idx)) + " "
 				next
-				' take the mean of the cluster's series
+				%g_centr = @replace(%centr, "V_", "G_")
+				' go to the sample of the associated obsevations to the centroid & take the new mean
+				smpl {%obs_prds}
+					group {%g_centr} {%SERIES_LIST}
+				%m_centr = @replace(%centr, "V_", "M_")
+					stom({%g_centr}, {%m_centr})
+				' store the mean in the new vector
 				%centr_new = @replace(%centr, "_OLD", "_NEW")
-				vector {%centr_new} = @cmean({%m_centr})
-				delete {%m_centr}
+					vector {%centr_new} = @cmean({%m_centr})
+				' clean up - the vector is all that is needed at this juncture (matrix & group just needed to calculate it)
+				delete {%g_centr} {%m_centr}
 			next
 
 			' determine if it definitively can be concluded that an optimum is reached
