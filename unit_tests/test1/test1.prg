@@ -32,6 +32,6 @@ excludeMe(2) = 2
 
 series dropMeNoVar = 3
 
-exec .\..\..\kmeans.prg(k = 3, iters = 5, series = sp_gold sp_oil ur dropMeAllNA dropMeNoVar)
+exec .\..\..\kmeans.prg(k = 3, inits = 5, series = sp_gold sp_oil ur dropMeAllNA dropMeNoVar, max_iters = 1)
 
 

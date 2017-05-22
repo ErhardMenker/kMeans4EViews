@@ -9,8 +9,8 @@
 
 ' 2) Optional -
 '	a. quiet = shut off log messages (log messages left on if not specified)
-'	b. iters = the number of full solution iterations to run (defaults to 3)
-'	c. max_iters = the max allowed number of cluster moves for a given init (defaults to 10)
+'	b. inits = the number of full solution random centroid initializations to run (defaults to 3)
+'	c. max_iters = the max allowed number of cluster moves for a given initialization (defaults to 10)
 '		setting argument to NONE means that # of times clusters may move is not capped
 '	d. series = a space delimited string of series included in analysis (defaults to all series)
 '	e. smpl = the sample to execute the procedure over (defaults to the current sample)
@@ -64,19 +64,19 @@ if !K <= 0 or @mod(!K, 1) <> 0 then
 	seterr "ERROR: K must be a positive integer"
 endif
 
-' 6) find out how many iterations of k-means are to be done
-!ITERS = @val(@equaloption("iters"))
-if !ITERS = NA then
-	!ITERS = 3
+' 6) find out how many random centroid initializations are to be solved
+!INITS = @val(@equaloption("inits"))
+if !INITS = NA then
+	!INITS = 3
 
-	logmsg ----- Setting # of k-means full iteration solutions to default of 3
+	logmsg ----- Setting # of k-means random init solves to default of 3
 	logmsg
 endif
-if !ITERS <= 0 or @mod(!ITERS, 1) <> 0 then
+if !INITS <= 0 or @mod(!INITS, 1) <> 0 then
 	seterr "ERROR: # of initializations must be a positive integer"
 endif
 
-' 7) find the max # of iterations of cluster moves for a given random init
+' 7) find the max # of iterations of cluster moves for a given random centroid initialization
 %MAX_ITERS = @equaloption("max_iters")
 ' if max_iters is not specified, default it to 10
 if %MAX_ITERS = "" then
@@ -188,7 +188,7 @@ for !obs = 1 to @rows({%is_row_na})
 	endif
 next
 delete {%is_row_na}
-' throw an error because there are no all non-NA observations for series to be clustered
+' throw an error if there are no all non-NA observations for series to be clustered
 if @wcount(%complete_idxs) = 0 then
 	seterr "ERROR: no period has no NAs for all the series to be clustered"
 endif
@@ -215,19 +215,19 @@ for !obs = 1 to @rows({%m_norm_srs})
 	vector {%obs} = {%m_norm_srs}.@row(!obs)
 next
 
-' figure out which observations will be randomly initialized as centroids for each iteration of k-means to be done
+' figure out which observations will be randomly initialized as centroids for each init of k-means to be done
 %m_init = @getnextname("m_init")
-	matrix(!K, !ITERS) {%m_init}
+	matrix(!K, !INITS) {%m_init}
 %idxs_all = @getnextname("v_idxs")
 	vector(@rows({%m_norm_srs})) {%idxs_all} = NA
-' fill in the k-means iteration's vector where each element is its index in the vector
+' fill in the k-means initialization vector where each element is its index in the vector
 for !obs_iter = 1 to @rows({%m_norm_srs})
 	{%idxs_all}(!obs_iter) = !obs_iter
 next
-' continuously scatter the vector's elements and take the 1st K entries as that iteration's seed 
-for !iter = 1 to !ITERS
+' continuously scatter the vector's elements and take the 1st K entries as that init's seed 
+for !init = 1 to !INITS
 	' scatter the vector's entries (set a seed to ensure reproducibility)
-	rndseed !iter
+	rndseed !init
 	{%idxs_all} = @permute({%idxs_all})
 	%idxs_init = @getnextname("v_idxs_init")
 	vector(!K) {%idxs_init}
@@ -237,8 +237,8 @@ for !iter = 1 to !ITERS
 	next
 	' sort to more easily compare different initialization indices
 	{%idxs_init} = @sort({%idxs_init})
-	' place the iteration's initialized centroid observations into the appropriate initialization matrix column
-	colplace({%m_init}, {%idxs_init}, !iter)
+	' place the solve's initialized centroid observations into the appropriate initialization matrix column
+	colplace({%m_init}, {%idxs_init}, !init)
 	delete {%idxs_init}
 next
 
@@ -246,19 +246,19 @@ next
 ' *** EXECUTE K-MEANS CLUSTERING ***
 '**************************************************
 logmsg
-logmsg ----- Executing k-means clustering with !K clusters over !ITERS iterations
+logmsg ----- Executing k-means clustering with !K clusters over !INITS iterations
 logmsg
 
-' initialize the cost variable to be minimized 
+' define the cost variable to be minimized 
 !cost_min = NA 
-' execute k-means clustering across each iteration
-for !iter = 1 to !ITERS
-	logmsg ----- solving k-means iteration #!iter
+' execute k-means clustering across each random centroid initialization
+for !init = 1 to !INITS
+	logmsg ----- solving k-means random initialization #!init
 	tic
 
 	' extract centroids from the respective randomly initialized matrix column	
 	%centr_idxs = @getnextname("v_centr_idxs")
-	vector {%centr_idxs} = {%m_init}.@col(!iter)
+	vector {%centr_idxs} = {%m_init}.@col(!init)
 	' create k vectors with the initialized indexed coordinates
 	for !centr = 1 to !K
 		!centr_idx = {%centr_idxs}(!centr)
@@ -329,21 +329,21 @@ for !iter = 1 to !ITERS
 
 		' a solution has analytically been reached or max allowed iterations achieved, vet results
 		if !optimum_reached or (!iter_count = !MAX_ITERS) then
-			delete v_centr*_new ' don't need this anymore - just used them to verify that cluster solution converged
-			' calculate the cost function of the solution
-			!cost_iter = 0
+			delete v_centr*_new ' if a full solve, just used vectors to verify that cluster solution converged
+			' calculate the cost function of the randomly initialized solution
+			!cost_init = 0
 			%centrs = @wlookup("v_centr*_old", "vector")
 			for %centr {%centrs}
 				%clust_obs = {%centr}.@attr("assoc_obs")
 				for %clust_ob {%clust_obs}
 					%clust_ob = "v_obs" + %clust_ob
 					!clust_cost = @sum(@epow({%clust_ob} - {%centr}, 2))
-					!cost_iter = !cost_iter + !clust_cost
+					!cost_init = !cost_init + !clust_cost
 				next
 			next 
-			' if this cost function is less than the current best (or on 1st iter), store its centroids as current optimal 1s
-			if !cost_min = NA or !cost_iter < !cost_min then
-				!cost_min = !cost_iter
+			' if this cost function is less than the current best (or on 1st init), store its centroids as current optimal 1s
+			if !cost_min = NA or !cost_init < !cost_min then
+				!cost_min = !cost_init
 				' clear out the previous optimal vectors & rename the current iterated 1s
 				if @wcount(@wlookup("v_centr*_opt", "vector")) > 0 then
 					delete v_centr*_opt 
@@ -394,7 +394,7 @@ text {%results}
 {%results}.append
 %k_num_msg = "# of clusters: " + @str(!K)
 	{%results}.append %k_num_msg
-%iter_msg = "# of iterations used: " + @str(!ITERS)
+%iter_msg = "# of iterations used: " + @str(!INITS)
 	{%results}.append %iter_msg
 ' place a comma between each series for presentation's sake
 %concept_list = ""
