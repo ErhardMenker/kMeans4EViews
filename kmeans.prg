@@ -296,17 +296,18 @@ for !init = 1 to !INITS
 		' if the max # of allowable movement of clusters has not been reached, move them
 		if !MAX_ITERS = NA or (!iter_count <> !MAX_ITERS) then
 			' go thru each cluster centroid & recalculate it as the mean of each of the newest closest centroids
-
-			for %centr {%centrs}
+			' init a series indicating which centroid the observation currently belongs to 
+			series clstr_assoc = NA
+			for !i = 1 to !K
+				%centr = "V_CENTR" + @str(!i) + "_OLD"
 				%obs_idxs = {%centr}.@attr("assoc_obs")
-				%obs_prds = ""
-				' convert the associated observations from indices to actual obs that can be defined by a sample 
+				' fill in iterated centroid's observations with that centroid #
 				for %obs_idx {%obs_idxs}
-					%obs_prds = %obs_prds + @otod(@val(%obs_idx)) + " " + @otod(@val(%obs_idx)) + " "
+					clstr_assoc(@val(%obs_idx)) = !i
 				next
 				%g_centr = @replace(%centr, "V_", "G_")
-				' go to the sample of the associated obsevations to the centroid & take the new mean
-				smpl {%obs_prds}
+				' go to the sample of the associated obs to the centroid & take the new mean
+				smpl @all if clstr_assoc = !i
 					group {%g_centr} {%SERIES_LIST}
 				%m_centr = @replace(%centr, "V_", "M_")
 					stom({%g_centr}, {%m_centr})
