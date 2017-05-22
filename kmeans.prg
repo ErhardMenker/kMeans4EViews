@@ -313,8 +313,9 @@ for !init = 1 to !INITS
 				' take the mean of the cluster's series
 				%centr_new = @replace(%centr, "_OLD", "_NEW")
 				vector {%centr_new} = @cmean({%m_centr})
+				delete {%m_centr}
 			next
-	
+
 			' determine if it definitively can be concluded that an optimum is reached
 			!optimum_reached = 1
 			%centrs_old = @wlookup("v_centr*_old", "vector")
@@ -349,12 +350,11 @@ for !init = 1 to !INITS
 					delete v_centr*_opt 
 				endif 
 				rename v_centr*_old v_centr*_opt
-				delete m_centr*_old ' just need the coordinates at this point
 			endif 
 			exitloop 
 		' if optimal clustering is not achieved, prep for another iteration
 		else
-			delete m_centr*_old v_centr*_old
+			delete v_centr*_old
 			rename v_centr*_new v_centr*_old
 		endif
 
