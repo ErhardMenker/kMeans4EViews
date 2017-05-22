@@ -313,7 +313,7 @@ for !init = 1 to !INITS
 				' store the mean in the new vector
 				%centr_new = @replace(%centr, "_OLD", "_NEW")
 					vector {%centr_new} = @cmean({%m_centr})
-				' clean up - the vector is all that is needed at this juncture (matrix & group just needed to calculate it)
+				' vector of new centroid coords is all that is needed (matrix & group just needed to calculate it)
 				delete {%g_centr} {%m_centr}
 			next
 
