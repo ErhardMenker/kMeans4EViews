@@ -297,17 +297,17 @@ for !init = 1 to !INITS
 		if !MAX_ITERS = NA or (!iter_count <> !MAX_ITERS) then
 			' go thru each cluster centroid & recalculate it as the mean of each of the newest closest centroids
 			' init a series indicating which centroid the observation currently belongs to 
-			series clstr_assoc = NA
+			series obs_cluster = NA
 			for !i = 1 to !K
 				%centr = "V_CENTR" + @str(!i) + "_OLD"
 				%obs_idxs = {%centr}.@attr("assoc_obs")
 				' fill in iterated centroid's observations with that centroid #
 				for %obs_idx {%obs_idxs}
-					clstr_assoc(@val(%obs_idx)) = !i
+					obs_cluster(@val(%obs_idx)) = !i
 				next
 				%g_centr = @replace(%centr, "V_", "G_")
 				' go to the sample of the associated obs to the centroid & take the new mean
-				smpl @all if clstr_assoc = !i
+				smpl @all if obs_cluster = !i
 					group {%g_centr} {%SERIES_LIST}
 				%m_centr = @replace(%centr, "V_", "M_")
 					stom({%g_centr}, {%m_centr})
@@ -352,6 +352,9 @@ for !init = 1 to !INITS
 					delete v_centr*_opt 
 				endif 
 				rename v_centr*_old v_centr*_opt
+				' note the fact that the associated cluster with each obs is the optimal classification (thus far)
+				rename obs_cluster obs_cluster_opt
+				obs_cluster_opt.setattr(Description) "Denotes which cluster each observation is associated with"
 			endif 
 			exitloop 
 		' if optimal clustering is not achieved, prep for another iteration
@@ -382,6 +385,9 @@ logmsg
 
 %concepts = {%m_norm_srs}.@collabels ' ordering of series for cluster centroid coordinates 
 %obs_idxs = {%m_norm_srs}.@rowlabels ' indices of used observations
+
+' move the observation-cluster classifier to the original page
+copy {%work_page}\obs_cluster_opt {%ORIG_PAGE}\obs_cluster
 
 ' create a text file to present the results
 pageselect {%ORIG_PAGE}
