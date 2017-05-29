@@ -389,18 +389,13 @@ logmsg
 
 ' NOTE: all cluster summary stats are recalculated, because the calculations were done on normalized series to avoid scaling issues
 
-' all that is needed at this juncture from the above work is:
-' i) the closest observations to each cluster centroid
-' ii) the indices of observations used in the cluster analysis (excludes observations where any included series has an NA)
-
-%concepts = {%m_norm_srs}.@collabels ' ordering of series for cluster centroid coordinates 
-%obs_idxs = {%m_norm_srs}.@rowlabels ' indices of used observations
+' with series obs_cluster saying which obs belongs to which cluster, differences between cluster & overall means can be calculated
 
 ' move the observation-cluster classifier to the original page
 copy {%work_page}\obs_cluster_opt {%ORIG_PAGE}\obs_cluster
 
-' create a text file to present the results
 pageselect {%work_page}
+' create a text file to present the results
 %results = @getnextname("kmeans_results")
 text {%results}
 {%results}.append "*******************************************************************"
@@ -415,12 +410,8 @@ text {%results}
 %iter_msg = "# of iterations used: " + @str(!INITS)
 	{%results}.append %iter_msg
 ' place a comma between each series for presentation's sake
-%concept_list = ""
-for %concept {%concepts}
-	%concept_list = %concept_list + " " + %concept + ","
-next
-%concept_list = @left(%concept_list, @len(%concept_list) - 1) ' strike the last comma
-%srs_msg = "Series included in clusters: " + %concept_list
+%srs_list_text = @replace(@trim(%SERIES_LIST), " ", ", ")
+%srs_msg = "Series included in clusters: " + %srs_list_text
 	{%results}.append %srs_msg
 {%results}.append "***************************************************************************************"
 {%results}.append
