@@ -359,6 +359,8 @@ for !init = 1 to !INITS
 				endif
 				rename obs_cluster obs_cluster_opt
 				obs_cluster_opt.setattr(Description) "Denotes which cluster each observation is associated with"
+				%K = @str(!K)
+					obs_cluster_opt.setattr(# of Centroids) %K
 			endif 
 			exitloop 
 		' if optimal clustering is not achieved, prep for another iteration
