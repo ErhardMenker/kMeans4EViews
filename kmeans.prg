@@ -363,13 +363,19 @@ for !init = 1 to !INITS
 			exitloop 
 		' if optimal clustering is not achieved, prep for another iteration
 		else
-			delete v_centr*_old
+			delete v_centr*_old 
 			rename v_centr*_new v_centr*_old
 		endif
 
 		' an iteration is clocked when the means of the clusters have been moved
 		!iter_count = !iter_count + 1
 	wend ' next move of current cluster centroids
+
+	' remove this if it exists - the needed values are in obs_cluster_opt
+	if @isobject("obs_cluster") then
+		delete obs_cluster
+	endif
+
 	!time = @toc
 	logmsg ------ !iter_count iterations [!time seconds]
 next ' next random init of cluster centroids
@@ -394,7 +400,7 @@ logmsg
 copy {%work_page}\obs_cluster_opt {%ORIG_PAGE}\obs_cluster
 
 ' create a text file to present the results
-pageselect {%ORIG_PAGE}
+pageselect {%work_page}
 %results = @getnextname("kmeans_results")
 text {%results}
 {%results}.append "*******************************************************************"
@@ -419,117 +425,71 @@ next
 {%results}.append "***************************************************************************************"
 {%results}.append
 
-' calculate the means of the series for all observations used in the cluster analysis (obs indices with NAs are dropped)
-for %concept {%concepts}
-	!missing_obs = 0
-	!{%concept}_all_sum = 0
-	for %obs_idx {%obs_idxs}
-		' must find out which index this observation actually is 
-		' (can be offset by NAs or a range that starts earlier than the sample)
-		!obs_idx_real = @val(%obs_idx) + @dtoo(@word(%SMPL, 1)) - @dtoo(@word(@pagerange, 1))
-		if {%concept}(!obs_idx_real) <> NA then
-			!{%concept}_all_sum = !{%concept}_all_sum + {%concept}(!obs_idx_real)
-		' this line will only execute if imputation occurred for the current observation for the series
-		else
-			!missing_obs = !missing_obs + 1
-		endif
-	next
-	!{%concept}_all_mean = !{%concept}_all_sum / (@wcount(%obs_idxs) - !missing_obs)
+' replace each series on the add-in page with the non-normalized version of the series
+for %srs {%SERIES_LIST}
+	copy {%ORIG_PAGE}\{%srs} {%work_page}\{%srs}
+	' calculate the mean over all observations in the sample
+	pageselect {%work_page}
+	smpl @all
+	!{%srs}_all_mean = @mean({%srs})
 next
 
-' iterate thru each cluster centroid
+' iterate through each centroid & calculate the mean over its sample for each series
+pageselect {%work_page}
 for !i = 1 to !K
-	pageselect {%work_page}
-	%centr_opt = "v_centr" + @str(!i) + "_opt"
-	%assoc_obs = {%centr_opt}.@attr("assoc_obs")
-	' append the cluster's id info to the outputted text file
-	pageselect {%ORIG_PAGE}
-	' set the sample to what it is for the utility (to keep observation indexing correct)
-	smpl {%SMPL}
+	' introduce centroid # to the text file
 	{%results}.append "***************************************************************************************"
 	%k_msg = "CLUSTER " + @str(!i) + ":"
 		{%results}.append %k_msg
 	{%results}.append
-	' append the observations that belong to the cluster in the outputted text file with assoc_obs_dates string
-	%assoc_obs_dates = ""
-	' iterate thru each concept & place statistics for that cluster compared to the general mean
-	for %concept {%concepts}
-		' initialize a counter that tracks how many missing observations there are for the concept 
-		' (necessary for imputed series that are NA in the original series for a given associated observation)
-		!missing_obs = 0
-		!{%concept}_k_sum = 0
-		for %assoc_ob {%assoc_obs}
-			!assoc_ob = @val(@word(%obs_idxs, @val(%assoc_ob)))	
-			' must find out which index this associated observation actually is 
-			' (can be offset by NAs or a range that starts earlier than the sample)
-			!assoc_obs_date = !assoc_ob + @dtoo(@word(%SMPL, 1)) - @dtoo(@word(@pagerange, 1))
-			%assoc_obs_dates = %assoc_obs_dates + " " + @otod(!assoc_obs_date) + ","
-			' add centroid's associated observation to the accumulator if not NA 
-			' (occurs if this observation was NA, but imputation was selected so other concept values aren't lost)
-			if {%concept}(!assoc_obs_date) <> NA then
-				!{%concept}_k_sum = !{%concept}_k_sum + {%concept}(!assoc_obs_date)
-			else
-				' increment the counter for the mean divisor (value was NA, does not contribute to sum)
-				!missing_obs = !missing_obs + 1
+
+	smpl @all if obs_cluster_opt = !i
+	' iterate through the series & present difference in means for cluster compared to general
+	for %srs {%SERIES_LIST}
+		!{%srs}_k_mean = @mean({%srs})
+		!{%srs}_k_mean_round = @round(1000 * !{%srs}_k_mean) / 1000
+		%srs_msg = %srs + " cluster mean is " + @str(!{%srs}_k_mean_round)
+			{%results}.append %srs_msg
+		' calculate absolute & pct differences compared to general mean
+		!{%srs}_abs_diff = @round(1000 * (!{%srs}_k_mean - !{%srs}_all_mean)) / 1000
+		' cannot calculate pct difference if general mean is a 0
+		!{%srs}_pct_diff = NA
+		if !{%srs}_all_mean <> 0 then
+			!{%srs}_pct_diff = @round(1000 * 100 * (!{%srs}_k_mean - !{%srs}_all_mean) / !{%srs}_all_mean) / 1000
+		endif
+		' a. centroid mean is larger than overall mean
+		if !{%srs}_abs_diff > 0 then
+			%abs_diff_msg = "    i) " + @str(@abs(!{%srs}_abs_diff)) + " units greater than overall " + %concept + " mean"
+				{%results}.append %abs_diff_msg
+			if !{%srs}_pct_diff <> NA then
+				%pct_diff_msg = "    ii) " + @str(@abs(!{%srs}_pct_diff)) + "% greater than overall " + %concept + " mean" 
+				{%results}.append %pct_diff_msg
 			endif
-		next
-		' only append the periods associated with the cluster if this is the 1st concept iteration
-		if @wfind(%concepts, %concept) = 1 then
-			{%results}.append "Observations Included in Cluster:"
-			%assoc_obs_dates = @left(%assoc_obs_dates, @len(%assoc_obs_dates) - 1) ' drop the final comma
-				{%results}.append %assoc_obs_dates
-			{%results}.append
-		endif
-		' calculate the concept's mean across this cluster, only for obs in the original workfile (disregard add-in imputations)
-		!{%concept}_k_mean = !{%concept}_k_sum / (@wcount(%assoc_obs) - !missing_obs)
-		' calculate how much greater this concept's cluster mean is than the total mean
-		!{%concept}_k_abs_diff = !{%concept}_k_mean - !{%concept}_all_mean
-		' calculate the percent increase of this cluster's concept mean to total mean (iff the all obs concept mean is not 0)
-		' define a Boolean indicating whether a percentage difference can be calculated (the mean of all concept obs can't be 0)
-		!pct_diff_defined = 0
-		if !{%concept}_all_mean <> 0 then
-			!{%concept}_k_pct_diff = (!{%concept}_k_mean - !{%concept}_all_mean) / !{%concept}_all_mean
-			!pct_diff_defined = 1 
-		endif
-		' round message concepts to the 1000th place & place in a scalar name with no nested string 
-		' (cannot convert to string if a program variable is nested within the scalar's definition)
-		!concept_k_mean = @round(1000 * !{%concept}_k_mean) / 1000
-		' append the mean of this concept for this centroid to the log message
-		%k_concept_msg = %concept + " cluster average is: " + @str(!concept_k_mean)
-			{%results}.append %k_concept_msg
-		!abs_diff = @round(1000 * !{%concept}_k_abs_diff) / 1000
-		if !pct_diff_defined then
-			!pct_diff = 100 * (@round(1000 * !{%concept}_k_pct_diff) / 1000)
-		endif
-		if !abs_diff >= 0 then 
-			%abs_diff_msg = "    i) " + @str(@abs(!abs_diff)) + " units greater than overall " + %concept + " mean"
-			if !pct_diff_defined then
-				%pct_diff_msg = "    ii) " + @str(@abs(!pct_diff)) + "% greater than overall " + %concept + " mean" 
-			endif
+		' b. centroid mean is lesser than overall mean
 		else
-			%abs_diff_msg = "    i) " + @str(@abs(!abs_diff)) + " units less than overall " + %concept + " mean"
-			if !pct_diff_defined then
-				%pct_diff_msg = "    ii) " + @str(@abs(!pct_diff)) + "% less than overall " + %concept + " mean" 
+			%abs_diff_msg = "    i) " + @str(@abs(!{%srs}_abs_diff)) + " units lesser than overall " + %concept + " mean"
+				{%results}.append %abs_diff_msg
+			if !{%srs}_pct_diff <> NA then
+				%pct_diff_msg = "    ii) " + @str(@abs(!{%srs}_pct_diff)) + "% lesser than overall " + %concept + " mean" 
+				{%results}.append %pct_diff_msg
 			endif
-		endif
-		{%results}.append %abs_diff_msg 	
-		' only append the concept's percentage difference string message if it was calculated (mean cannot equal 0)
-		if !pct_diff_defined then
-			{%results}.append %pct_diff_msg
 		endif
 		{%results}.append
-	next 
-	{%results}.append "***************************************************************************************"
-	{%results}.append 
-next 
+	next
+next
+{%results}.append "***************************************************************************************"
+{%results}.append 
+
+' move the results text file to the output page
+copy {%work_page}\{%results} {%ORIG_PAGE}\{%results}
 
 ' clean up - delete the scratch work page
 pagedelete {%work_page}
-
-' present the final results to the user
 pageselect {%ORIG_PAGE}
+
+' show the text file & series mapping observation to centroid
+show obs_cluster
 show {%results}
-' restore the sample
-smpl {%ORIG_SMPL}
+
 
 
