@@ -317,6 +317,7 @@ for !init = 1 to !INITS
 				' vector of new centroid coords is all that is needed (matrix & group just needed to calculate it)
 				delete {%g_centr} {%m_centr}
 			next
+			smpl @all
 
 			' determine if it definitively can be concluded that an optimum is reached
 			!optimum_reached = 1
@@ -353,6 +354,9 @@ for !init = 1 to !INITS
 				endif 
 				rename v_centr*_old v_centr*_opt
 				' note the fact that the associated cluster with each obs is the optimal classification (thus far)
+				if @isobject("obs_cluster_opt") then
+					delete obs_cluster_opt
+				endif
 				rename obs_cluster obs_cluster_opt
 				obs_cluster_opt.setattr(Description) "Denotes which cluster each observation is associated with"
 			endif 
