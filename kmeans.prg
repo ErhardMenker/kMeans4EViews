@@ -341,8 +341,8 @@ for !init = 1 to !INITS
 				%clust_obs = {%centr}.@attr("assoc_obs")
 				for %clust_ob {%clust_obs}
 					%clust_ob = "v_obs" + %clust_ob
-					!clust_cost = @sum(@epow({%clust_ob} - {%centr}, 2))
-					!cost_init = !cost_init + !clust_cost
+					!obs_cost = @sum(@epow({%clust_ob} - {%centr}, 2))
+					!cost_init = !cost_init + !obs_cost
 				next
 			next 
 			' if this cost function is less than the current best (or on 1st init), store its centroids as current optimal 1s
