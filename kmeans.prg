@@ -457,20 +457,22 @@ for !i = 1 to !K
 		if !{%srs}_all_mean <> 0 then
 			!{%srs}_pct_diff = @round(1000 * 100 * (!{%srs}_k_mean - !{%srs}_all_mean) / !{%srs}_all_mean) / 1000
 		endif
+		%{%srs}_abs_diff = @str(@abs(!{%srs}_abs_diff))
+		%{%srs}_pct_diff = @str(@abs(!{%srs}_pct_diff))			
 		' a. centroid mean is larger than overall mean
 		if !{%srs}_abs_diff > 0 then
-			%abs_diff_msg = "    i) " + @str(@abs(!{%srs}_abs_diff)) + " units greater than overall " + %concept + " mean"
+			%abs_diff_msg = "    i) " + %{%srs}_abs_diff + " units greater than overall " + %concept + " mean"
 				{%results}.append %abs_diff_msg
 			if !{%srs}_pct_diff <> NA then
-				%pct_diff_msg = "    ii) " + @str(@abs(!{%srs}_pct_diff)) + "% greater than overall " + %concept + " mean" 
+				%pct_diff_msg = "    ii) " + %{%srs}_pct_diff+ "% greater than overall " + %concept + " mean" 
 				{%results}.append %pct_diff_msg
 			endif
 		' b. centroid mean is lesser than overall mean
 		else
-			%abs_diff_msg = "    i) " + @str(@abs(!{%srs}_abs_diff)) + " units lesser than overall " + %concept + " mean"
+			%abs_diff_msg = "    i) " + %{%srs}_abs_diff + " units lesser than overall " + %concept + " mean"
 				{%results}.append %abs_diff_msg
 			if !{%srs}_pct_diff <> NA then
-				%pct_diff_msg = "    ii) " + @str(@abs(!{%srs}_pct_diff)) + "% lesser than overall " + %concept + " mean" 
+				%pct_diff_msg = "    ii) " + %{%srs}_pct_diff  + "% lesser than overall " + %concept + " mean" 
 				{%results}.append %pct_diff_msg
 			endif
 		endif
