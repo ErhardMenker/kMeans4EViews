@@ -454,18 +454,18 @@ for !i = 1 to !K
 		%{%srs}_pct_diff = @str(@abs(!{%srs}_pct_diff))			
 		' a. centroid mean is larger than overall mean
 		if !{%srs}_abs_diff > 0 then
-			%abs_diff_msg = "    i) " + %{%srs}_abs_diff + " units greater than overall " + %concept + " mean"
+			%abs_diff_msg = "    i) " + %{%srs}_abs_diff + " units greater than overall " + %srs + " mean"
 				{%results}.append %abs_diff_msg
 			if !{%srs}_pct_diff <> NA then
-				%pct_diff_msg = "    ii) " + %{%srs}_pct_diff + "% greater than overall " + %concept + " mean" 
+				%pct_diff_msg = "    ii) " + %{%srs}_pct_diff + "% greater than overall " + %srs + " mean" 
 				{%results}.append %pct_diff_msg
 			endif
 		' b. centroid mean is lesser than overall mean
 		else
-			%abs_diff_msg = "    i) " + %{%srs}_abs_diff + " units lesser than overall " + %concept + " mean"
+			%abs_diff_msg = "    i) " + %{%srs}_abs_diff + " units lesser than overall " + %srs + " mean"
 				{%results}.append %abs_diff_msg
 			if !{%srs}_pct_diff <> NA then
-				%pct_diff_msg = "    ii) " + %{%srs}_pct_diff  + "% lesser than overall " + %concept + " mean" 
+				%pct_diff_msg = "    ii) " + %{%srs}_pct_diff  + "% lesser than overall " + %srs + " mean" 
 				{%results}.append %pct_diff_msg
 			endif
 		endif
