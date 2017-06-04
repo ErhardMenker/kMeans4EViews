@@ -1,4 +1,5 @@
 ' MOTIVATION: can k-means handle a time series with NAs?
+' will produce same answer as test1 for the all non-NA obs
 
 wf a 2005 2011
 
@@ -29,7 +30,6 @@ ur(5) = 15
 ur(6) = 7
 ur(7) = 6
 
-' contrast these 2 clusterings:
 exec .\..\..\kmeans.prg(k = 3, iters = 5)
 
 

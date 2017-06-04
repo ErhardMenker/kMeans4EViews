@@ -423,9 +423,12 @@ for %srs {%SERIES_LIST}
 	copy {%ORIG_PAGE}\{%srs} {%work_page}\{%srs}
 	' calculate the mean over all observations in the sample
 	pageselect {%work_page}
+	' constrain sample to obs that were included in cluster output
+	smpl @all if obs_cluster_opt <> NA
+		!{%srs}_all_mean = @mean({%srs})
 	smpl @all
-	!{%srs}_all_mean = @mean({%srs})
 next
+
 
 ' iterate through each centroid & calculate the mean over its sample for each series
 pageselect {%work_page}
