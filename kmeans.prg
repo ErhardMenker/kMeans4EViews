@@ -47,8 +47,8 @@ endif
 %ORIG_SMPL = @pagesmpl
 ' b. extract the passed in sample
 %SMPL = @equaloption("smpl")
-	' vet validity if user passed in own sample
-	if %SMPL <> "" then
+	' vet validity if user passed in own sample not equal to @all or all
+	if %SMPL <> "" and @instr(@lower(%SMPL), "all") = 0 then
 		' i) user must communicate sample with 2 periods indicating the start & end of sample
 		if @wcount(%SMPL) <> 2 then
 			seterr "ERROR: Inputted sample must have length 2 (start & end of sample bound, respectively)"
