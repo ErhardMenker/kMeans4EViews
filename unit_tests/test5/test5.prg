@@ -30,6 +30,6 @@ ur(6) = 7
 ur(7) = 6
 
 ' contrast these 2 clusterings:
-exec .\..\..\kmeans.prg(k = 3, iters = 5, impute)
 exec .\..\..\kmeans.prg(k = 3, iters = 5)
+
 
