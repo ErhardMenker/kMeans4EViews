@@ -121,12 +121,14 @@ for %srs {%SERIES_LIST}
 	if @obs({%srs}) = 0 then
 		%msg = %srs + " is all NA; dropping " + %srs + " from the k-means clustering process"
 		logmsg ----- %msg
+		logmsg
 		%SERIES_LIST = @replace(%SERIES_LIST, %srs, "")
 	else
 		' drop series that have no variability to them
 		if @stdev({%srs}) = 0 then
 			%msg = %srs + " has no variability; dropping " + %srs + " from the k-means clustering process"
 			logmsg ----- %msg
+			logmsg
 			%SERIES_LIST = @replace(%SERIES_LIST, %srs, "")
 		endif
 	endif
@@ -245,7 +247,6 @@ next
 '**************************************************
 ' *** EXECUTE K-MEANS CLUSTERING ***
 '**************************************************
-logmsg
 logmsg ----- Executing k-means clustering with !K clusters over !INITS iterations
 logmsg
 
@@ -380,12 +381,12 @@ for !init = 1 to !INITS
 
 	!time = @toc
 	logmsg ------ !iter_count iterations [!time seconds]
+	logmsg
 next ' next random init of cluster centroids
 
 ' ************************************************
 ' *** CLEAN UP & PRESENT RESULTS ***
 ' ************************************************
-logmsg
 logmsg ----- Presenting results & cleaning up
 logmsg
 
