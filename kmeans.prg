@@ -303,7 +303,7 @@ for !init = 1 to !INITS
 				%obs_idxs = {%centr}.@attr("assoc_obs")
 				' fill in iterated centroid's observations with that centroid #
 				for %obs_idx {%obs_idxs}
-					obs_cluster(@val(%obs_idx)) = !i
+					obs_cluster(@val(@word(%complete_idxs, @val(%obs_idx)))) = !i
 				next
 				%g_centr = @replace(%centr, "V_", "G_")
 				' go to the sample of the associated obs to the centroid & take the new mean
