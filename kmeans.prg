@@ -47,6 +47,30 @@ endif
 %ORIG_SMPL = @pagesmpl
 ' b. extract the passed in sample
 %SMPL = @equaloption("smpl")
+	' vet validity if user passed in own sample
+	if %SMPL <> "" then
+		' i) user must communicate sample with 2 periods indicating the start & end of sample
+		if @wcount(%SMPL) <> 2 then
+			seterr "ERROR: Inputted sample must have length 2 (start & end of sample bound, respectively)"
+		endif
+		!smpl_start_error = @dtoo(@word(%SMPL, 1)) < @dtoo(@word(@pagerange, 1))
+		!smpl_end_error = @dtoo(@word(%SMPL, 2)) > @dtoo(@word(@pagerange, 2))
+		' ii) passed-in sample starts both before range starts & after range ends
+		if !smpl_start_error and !smpl_end_error then
+			seterr "ERROR: User inputted sample start & end dates are outside bounds of range"
+		else 
+			' iii) passed-in sample starts before range begins
+			if !smpl_start_error then
+				seterr "ERROR: User inputted sample start is before start of range"
+			else
+			' iv) passed-in sample ends after range ends
+				if !smpl_end_error then
+					seterr "ERROR: User inputted sample end is after end of range"
+				endif
+			endif
+		endif
+	endif
+' if user wants sample as all, set sample equivalent to page range at time of add-in call
 if @hasoption("all") or @hasoption("@all") or @lower(%SMPL) = "all" or @lower(%SMPL) = "@all" then
 	%SMPL = @pagerange
 endif
