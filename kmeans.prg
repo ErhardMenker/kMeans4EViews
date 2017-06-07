@@ -244,14 +244,6 @@ for !obs = 1 to @rows({%m_norm_srs})
 	 ' extract the observation's values
 	vector {%obs} = {%m_norm_srs}.@row(!obs)
 next
-' reset the value of the 1st series if there were identical observations that required a slight mutation
-if !identical_obs then
-	vector v_srs1 = {%m_norm_srs}.@col(1)
-	%srs1 = @word(%SERIES_LIST, 1)
-		delete {%srs1}
-	mtos(v_srs1, {%srs1})
-		delete v_srs1
-endif
 
 ' figure out which observations will be randomly initialized as centroids for each init of k-means to be done
 %m_init = @getnextname("m_init")
