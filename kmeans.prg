@@ -197,6 +197,9 @@ for %srs {%SERIES_LIST}
 
 	' 3) normalize the series (to prevent differently scaled series from having disproportionate impacts on cluster centroids)
 	{%srs} = ({%srs} - @mean({%srs})) / @stdev({%srs})	
+
+	' 4) add standard random uniforms (scaled to be divided by 10 ^ 11) to protect against identical points causing a pointless centroid
+	{%srs} = {%srs} + (rnd / 10 ^ 11)
 next
 pageselect {%work_page}
 
@@ -240,16 +243,6 @@ for !obs = 1 to @rows({%m_norm_srs})
 	%obs = "v_obs" + @str(!obs)
 	 ' extract the observation's values
 	vector {%obs} = {%m_norm_srs}.@row(!obs)
-	' see if the obs is identical to a previous 1 already extracted 
-	for !obs_other = 1 to (!obs - 1)
-		%obs_other = "v_obs"  + @str(!obs_other)
-		' if identical to a previous obs, add a tiny # to 1st series to deter empty centroids from resulting
-		if {%obs} = {%obs_other} then
-			!identical_obs = 1
-			{%obs}(1) = {%obs}(1) + 0.000001
-			rowplace({%m_norm_srs}, @transpose({%obs}), !obs)
-		endif
-	next 
 next
 ' reset the value of the 1st series if there were identical observations that required a slight mutation
 if !identical_obs then
