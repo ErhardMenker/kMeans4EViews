@@ -198,7 +198,7 @@ for %srs {%SERIES_LIST}
 	' 3) normalize the series (to prevent differently scaled series from having disproportionate impacts on cluster centroids)
 	{%srs} = ({%srs} - @mean({%srs})) / @stdev({%srs})	
 
-	' 4) add standard random uniforms (scaled to be divided by 10 ^ 11) to protect against identical points causing a pointless centroid
+	' 4) add standard random uniforms (divide by 10 ^ 11) to protect against identical points causing a pointless centroid
 	{%srs} = {%srs} + (rnd / 10 ^ 11)
 next
 pageselect {%work_page}
