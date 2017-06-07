@@ -237,13 +237,6 @@ if !K >= !obs then
 	seterr "ERROR: the # of complete observations does NOT exceed the # of clusters" 
 endif
 
-' remove the observation's series values into their own vector
-for !obs = 1 to @rows({%m_norm_srs})
-	%obs = "v_obs" + @str(!obs)
-	 ' extract the observation's values
-	vector {%obs} = {%m_norm_srs}.@row(!obs)
-next
-
 ' figure out which observations will be randomly initialized as centroids for each init of k-means to be done
 %m_init = @getnextname("m_init")
 	matrix(!K, !INITS) {%m_init}
@@ -297,19 +290,18 @@ for !init = 1 to !INITS
 	next
 	delete {%centr_idxs}
 
-	' only exit while loop when the clusters have reached their optima
+	' only exit while loop when the clusters have reached their optima or max_iters reached
 	!iter_count = 0
 	while 1
 
 		' iterate through each observation & find its closest centroid
 		%centrs = @wlookup("v_centr*old", "vector")
 		for !obs = 1 to @rows({%m_norm_srs})
-			%obs = "v_obs" + @str(!obs)
 			'  find the centroid the observation is closest to
 			!min_dist = NA
 			for %centr {%centrs} 
 				' distance is the Euclidean distance in n dimensional space (# of series) 
-				!dist = @sqrt(@sum(@epow({%obs} - {%centr}, 2)))
+				!dist = @sqrt(@sum(@epow({%m_norm_srs}.@row(!obs) - {%centr}, 2)))
 				' if this centroid is the closest centroid so far, take note
 				if !min_dist = NA or !dist < !min_dist then
 					!min_dist = !dist
@@ -368,8 +360,7 @@ for !init = 1 to !INITS
 			for %centr {%centrs}
 				%clust_obs = {%centr}.@attr("assoc_obs")
 				for %clust_ob {%clust_obs}
-					%clust_ob = "v_obs" + %clust_ob
-					!obs_cost = @sum(@epow({%clust_ob} - {%centr}, 2))
+					!obs_cost = @sum(@epow({%m_norm_srs}.@row(@val(%clust_ob)) - {%centr}, 2))
 					!cost_init = !cost_init + !obs_cost
 				next
 			next 
