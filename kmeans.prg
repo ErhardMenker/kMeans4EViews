@@ -238,7 +238,6 @@ if !K >= !obs then
 endif
 
 ' remove the observation's series values into their own vector
-!identical_obs = 0
 for !obs = 1 to @rows({%m_norm_srs})
 	%obs = "v_obs" + @str(!obs)
 	 ' extract the observation's values
