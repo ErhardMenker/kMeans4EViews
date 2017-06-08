@@ -1,0 +1,8 @@
+<item>
+<title>kmeans</title>
+<path>kmeans.prg</path>
+<version>1.0</version>
+<description>Performs k-means clustering on a list of series objects.</description>
+<link>http://github.com/erhardmenker/.../kmeans.aipz</link>
+<pubDate>07 Jun 2017</pubDate>
+</item>
