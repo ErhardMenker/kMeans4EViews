@@ -198,8 +198,8 @@ for %srs {%SERIES_LIST}
 	' 3) normalize the series (to prevent differently scaled series from having disproportionate impacts on cluster centroids)
 	{%srs} = ({%srs} - @mean({%srs})) / @stdev({%srs})	
 
-	' 4) add standard random uniforms (divide by 10 ^ 11) to protect against identical points causing a pointless centroid
-	{%srs} = {%srs} + (rnd / 10 ^ 11)
+	' 4) add standard random uniforms (divide by 10 ^ 7) to protect against identical points causing a pointless centroid
+	{%srs} = {%srs} + (rnd / 10 ^ 7)
 next
 pageselect {%work_page}
 
@@ -263,6 +263,7 @@ for !init = 1 to !INITS
 	colplace({%m_init}, {%idxs_init}, !init)
 	delete {%idxs_init}
 next
+delete {%idxs_all}
 
 '**************************************************
 ' *** EXECUTE K-MEANS CLUSTERING ***
@@ -294,24 +295,41 @@ for !init = 1 to !INITS
 	!iter_count = 0
 	while 1
 
-		' iterate through each observation & find its closest centroid
-		%centrs = @wlookup("v_centr*old", "vector")
-		for !obs = 1 to @rows({%m_norm_srs})
-			'  find the centroid the observation is closest to
-			!min_dist = NA
-			for %centr {%centrs} 
-				' distance is the Euclidean distance in n dimensional space (# of series) 
-				!dist = @sqrt(@sum(@epow({%m_norm_srs}.@row(!obs) - {%centr}, 2)))
-				' if this centroid is the closest centroid so far, take note
-				if !min_dist = NA or !dist < !min_dist then
-					!min_dist = !dist
-					%min_centr = %centr
-				endif
-			next 
-			' indicate in the obs' closest centroid that this obs is closest to particular centroid
+		' find the closest centroid of each observation
+		%m_dist_all = @getnextname("m_dist_all") ' a matrix to have obs distance from each centroid
+			matrix(@rows({%m_norm_srs}), !K) {%m_dist_all} = NA
+		for !centr = 1 to !K
+			' --- create matrices that have each centroid repeated for vectorization ---
+			%v_centr_old = "v_centr" + @str(!centr) + "_old"
+			' create a comma-space delimited representation of the centroid
+			%centr_comma = ""
+			for !i = 1 to @rows({%v_centr_old})
+				!coord = {%v_centr_old}(!i)
+				%centr_comma = %centr_comma + @str(!coord) + ", "
+			next
+			%m_centr_repeat = "m_centr" + @str(!centr) + "_repeat"
+				' need to flip coordinates because of fill.(l) command's fill ordering
+				matrix(@columns({%m_norm_srs}), @rows({%m_norm_srs})) {%m_centr_repeat} = NA
+				' fill so that each column represents the centroid
+				{%m_centr_repeat}.fill(l) {%centr_comma}
+			' --- calculate the distances all observations are from a particular centroid ---
+			%v_dist = "v_dist" + @str(!centr)
+				vector {%v_dist} = @sqrt(@csum(@epow(@transpose({%m_norm_srs}) - {%m_centr_repeat}, 2)))
+			colplace({%m_dist_all}, {%v_dist}, !centr)
+				delete {%v_dist} {%m_centr_repeat}
+		next
+		' find the closest centroid of each obs using the minimized index
+		%v_centr_min = @getnextname("v_centr_min")
+			vector {%v_centr_min} = @cimin(@transpose({%m_dist_all}))
+				delete {%m_dist_all}
+		' assign each obs to the centroid that the distance is minimized for
+		for !obs = 1 to @rows({%v_centr_min})
+			!min_centr = {%v_centr_min}(!obs)
+			%min_centr = "v_centr" + @str(!min_centr) + "_old"
 			%assoc_obs = {%min_centr}.@attr("assoc_obs") + " " + @str(!obs)
 			{%min_centr}.setattr("assoc_obs") %assoc_obs
-		next 
+		next
+		delete {%v_centr_min}
 
 		' if the max # of allowable movement of clusters has not been reached, move them
 		if !MAX_ITERS = NA or (!iter_count <> !MAX_ITERS) then
