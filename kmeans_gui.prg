@@ -13,7 +13,7 @@
 	%quiet = "" ' string representation of non-quiet default
 
 !result = @uidialog("Edit", %K, "Enter # of Clusters (Mandatory)", _
-				"Edit", %series_list, "Enter Series to Cluster:", _
+				"Edit", %series_list, "Enter Series to Cluster (Leave Blank to do All on WF)", 9999, _
 				"Edit", %pagesmpl, "Sample (@all to equal range)", _
 				"Edit", %inits, "# of Solves", _
 				"Edit", %max_iters, "Max # of Cluster Moves (type 'None' to ignore)", _
