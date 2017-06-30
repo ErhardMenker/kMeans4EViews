@@ -6,7 +6,10 @@
 ## Core folders/files:
 
 - ./kmeans.prg is the EViews program that executes the k-means clustering routine
-- ./unit_tests is a folder containing programs that call the file to test scalability/accuracy
+- ./kmeans_gui.prg takes in the users arguments (if called from gui) and passes them into ./kmeans.prg
+- ./unit_tests is a folder containing programs that call the file to test scalability/accuracy (contact ejmenker@gmail.com for supplementary Excel files)
+- ./Docs contains a write up of the add-in in PDF & Word format (and the program used for its example)
+- ./Installers/kmeans.aipz contains the needed files such that opening it will begin the EViews install process on your PC
 
 
 ## Installing k-means add-in
