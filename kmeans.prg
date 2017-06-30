@@ -18,6 +18,7 @@
 '	f. impute | interpolate = whether to interpolate missing values (defaults to not linearly interpolating)
 '		For time series, execute linear interpolation
 '		For cross section, fill in any NAs with the median of the series
+'	g. seed = a random seed number to fluctuate initialized centroids (defaults to same init everytime)
 '*********************************************************************************************************************************
 
 ' *****************************************************************************
@@ -167,6 +168,9 @@ if @hasoption("impute") or @hasoption("interpolate") then
 	!IMPUTE = 1
 endif
 
+' 10) find out if user passed in a seed (will be NA if not)
+!SEED = @val(@equaloption("seed"))
+
 '***************************************
 ' *** SETUP WORKFILE PAGE ***
 '***************************************
@@ -248,8 +252,15 @@ for !obs_iter = 1 to @rows({%m_norm_srs})
 next
 ' continuously scatter the vector's elements and take the 1st K entries as that init's seed 
 for !init = 1 to !INITS
-	' scatter the vector's entries (set a seed to ensure reproducibility)
-	rndseed !init
+	' set a seed before permutation 
+	' a) user did not pass in a seed, so algorithm should return default results (reproducible)
+	if !SEED = NA then
+		rndseed !init
+	' b) user passed in a seed, so results will depend on the seed (tests results' robusticity)
+	else
+		rndseed !SEED
+	endif
+	' scatter the vector's entries
 	{%idxs_all} = @permute({%idxs_all})
 	%idxs_init = @getnextname("v_idxs_init")
 	vector(!K) {%idxs_init}

@@ -18,7 +18,8 @@
 				"Edit", %inits, "# of Solves", _
 				"Edit", %max_iters, "Max # of Cluster Moves (type 'None' to ignore)", _
 				"check", !impute, "Impute NAs?", _
-				"check", !quiet, "Hide Log Messages?")
+				"check", !quiet, "Hide Log Messages?", _
+				"Edit", %seed, "Optional Seed #")
 
 ' stop program if the user logs out
 if !result = -1 then
@@ -39,6 +40,6 @@ if !quiet then
 endif
 
 ' call k-means (if %impute or %quiet default behavior not overwritten, just passes in a meaningless empty string)
-exec ./kmeans.prg(k = !K, series = %series_list, smpl = %pagesmpl, inits = !inits, max_iters = %max_iters, {%impute}, {%quiet})
+exec ./kmeans.prg(k = !K, series = %series_list, smpl = %pagesmpl, inits = !inits, max_iters = %max_iters, {%impute}, {%quiet}, seed = %seed)
 
 
